@@ -1,0 +1,74 @@
+-- 1. ADD MISSING COLUMNS
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_active boolean default true not null;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS due_date timestamp with time zone;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS title text;
+
+-- 2. CREATE COMPLAINTS TABLE
+create table if not exists public.complaints (
+    id uuid default uuid_generate_v4() primary key,
+    customer_id uuid references public.customers(id) on delete cascade not null,
+    owner_id uuid references auth.users(id) on delete cascade not null,
+    message text not null,
+    status text not null default 'pending' check (status in ('pending', 'in_progress', 'completed')),
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 3. COMPLAINTS ROW LEVEL SECURITY (RLS)
+alter table public.complaints enable row level security;
+
+do $$
+begin
+  if not exists (select 1 from pg_policies where policyname = 'Owners can read their complaints' and tablename = 'complaints') then
+    create policy "Owners can read their complaints"
+    on public.complaints for select
+    using (auth.uid() = owner_id);
+  end if;
+
+  if not exists (select 1 from pg_policies where policyname = 'Owners can update their complaints' and tablename = 'complaints') then
+    create policy "Owners can update their complaints"
+    on public.complaints for update
+    using (auth.uid() = owner_id);
+  end if;
+
+  if not exists (select 1 from pg_policies where policyname = 'Customers can read their own complaints' and tablename = 'complaints') then
+    create policy "Customers can read their own complaints"
+    on public.complaints for select
+    using (
+        exists (
+            select 1 from public.customers 
+            where customers.id = complaints.customer_id 
+            and customers.auth_user_id = auth.uid()
+        )
+    );
+  end if;
+
+  if not exists (select 1 from pg_policies where policyname = 'Customers can insert complaints' and tablename = 'complaints') then
+    create policy "Customers can insert complaints"
+    on public.complaints for insert
+    with check (
+        exists (
+            select 1 from public.customers 
+            where customers.id = complaints.customer_id 
+            and customers.auth_user_id = auth.uid()
+        )
+    );
+  end if;
+end $$;
+
+
+-- 4. CREATE RPCS FOR USER MANAGEMENT
+
+-- Drop the old fragile RPC if it exists
+drop function if exists public.create_customer_user(text, text, text, uuid);
+
+-- Delete Own User Account RPC
+create or replace function public.delete_user_account()
+returns void language plpgsql security definer as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Unauthorized';
+  end if;
+  
+  delete from auth.users where id = auth.uid();
+end;
+$$;

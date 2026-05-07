@@ -3,7 +3,9 @@ class TransactionModel {
   final String customerId;
   final double amount;
   final String type; // 'credit' or 'payment'
+  final String? title;
   final DateTime date;
+  final DateTime? dueDate;
   final String? note;
   final DateTime createdAt;
 
@@ -12,7 +14,9 @@ class TransactionModel {
     required this.customerId,
     required this.amount,
     required this.type,
+    this.title,
     required this.date,
+    this.dueDate,
     this.note,
     required this.createdAt,
   });
@@ -23,7 +27,9 @@ class TransactionModel {
       customerId: json['customer_id'],
       amount: (json['amount'] as num).toDouble(),
       type: json['type'],
+      title: json['title'],
       date: DateTime.parse(json['date']),
+      dueDate: json['due_date'] != null ? DateTime.parse(json['due_date']) : null,
       note: json['note'],
       createdAt: DateTime.parse(json['created_at']),
     );
@@ -35,7 +41,9 @@ class TransactionModel {
       'customer_id': customerId,
       'amount': amount,
       'type': type,
+      'title': title,
       'date': date.toIso8601String(),
+      'due_date': dueDate?.toIso8601String(),
       'note': note,
       'created_at': createdAt.toIso8601String(),
     };

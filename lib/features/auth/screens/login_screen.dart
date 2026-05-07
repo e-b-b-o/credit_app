@@ -20,6 +20,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLogin = true;
 
   @override
+  void initState() {
+    super.initState();
+    // Always force login mode — signup is never needed from this screen for customers.
+    // For owners the toggle is shown; for customers it's hidden.
+    _isLogin = true;
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -111,19 +119,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onPressed: _submit,
                 ),
                 const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _isLogin = !_isLogin;
-                    });
-                  },
-                  child: Text(
-                    _isLogin
-                        ? 'Don\'t have an account? Sign Up'
-                        : 'Already have an account? Login',
-                    style: TextStyle(color: AppColors.primary),
+                // Only owners can sign up — customers are created by the owner
+                if (role == 'owner')
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isLogin = !_isLogin;
+                      });
+                    },
+                    child: Text(
+                      _isLogin
+                          ? 'Don\'t have an account? Sign Up'
+                          : 'Already have an account? Login',
+                      style: TextStyle(color: AppColors.primary),
+                    ),
+                  )
+                else
+                  Text(
+                    'Your login credentials are provided by your shop owner.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textLight),
                   ),
-                ),
               ],
             ),
           ),

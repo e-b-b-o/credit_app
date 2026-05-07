@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/supabase_service.dart';
 import '../../../data/models/transaction_model.dart';
+import '../customers/customer_ledger_screen.dart' show customerLedgerProvider;
 
 final allTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
@@ -10,6 +11,109 @@ final allTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) asy
 
 class TransactionScreen extends ConsumerWidget {
   const TransactionScreen({Key? key}) : super(key: key);
+
+  void _showAddTransactionDialog(BuildContext context, WidgetRef ref) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final customers = await ref.read(supabaseServiceProvider).getCustomers();
+    if (!context.mounted) return;
+    if (customers.isEmpty) {
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Add a customer first')));
+      return;
+    }
+
+    String? selectedCustomerId = customers.first.id;
+    String type = 'credit';
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Add Transaction'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Customer', border: OutlineInputBorder()),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedCustomerId,
+                      isDense: true,
+                      items: customers.map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name))).toList(),
+                      onChanged: (v) => setState(() => selectedCustomerId = v),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: type,
+                      isDense: true,
+                      items: const [
+                        DropdownMenuItem<String>(value: 'credit', child: Text('Give Credit')),
+                        DropdownMenuItem<String>(value: 'payment', child: Text('Receive Payment')),
+                      ],
+                      onChanged: (v) => setState(() => type = v!),
+                    ),
+                  ),
+                ),
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Title / Item (e.g. Rice and Oil)'),
+                ),
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(labelText: 'Amount'),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                TextField(
+                  controller: noteController,
+                  decoration: const InputDecoration(labelText: 'Note (Optional)'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(
+                onPressed: isLoading ? null : () async {
+                  final amount = double.tryParse(amountController.text);
+                  if (amount == null || amount <= 0 || selectedCustomerId == null) return;
+                  
+                  setState(() => isLoading = true);
+                  try {
+                    await ref.read(supabaseServiceProvider).addTransaction(
+                      selectedCustomerId!,
+                      amount,
+                      type,
+                      title: titleController.text.trim().isEmpty ? null : titleController.text.trim(),
+                      note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+                    );
+                    if (!context.mounted) return;
+                    Navigator.pop(ctx);
+                    ref.invalidate(allTransactionsProvider);
+                    // Also invalidate the customer's ledger if it's open
+                    ref.invalidate(customerLedgerProvider(selectedCustomerId!));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transaction added')));
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    setState(() => isLoading = false);
+                  }
+                },
+                child: isLoading ? const CircularProgressIndicator() : const Text('Add'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -51,9 +155,7 @@ class TransactionScreen extends ConsumerWidget {
         error: (error, _) => Center(child: Text('Error: $error')),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Open add transaction modal
-        },
+        onPressed: () => _showAddTransactionDialog(context, ref),
         child: const Icon(Icons.add),
       ),
     );

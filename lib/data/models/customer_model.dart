@@ -4,6 +4,7 @@ class CustomerModel {
   final String phone;
   final String ownerId;
   final String? authUserId;
+  final bool isActive;
   final DateTime createdAt;
 
   CustomerModel({
@@ -12,6 +13,7 @@ class CustomerModel {
     required this.phone,
     required this.ownerId,
     this.authUserId,
+    this.isActive = true,
     required this.createdAt,
   });
 
@@ -22,6 +24,7 @@ class CustomerModel {
       phone: json['phone'],
       ownerId: json['owner_id'],
       authUserId: json['auth_user_id'],
+      isActive: json['is_active'] ?? true,
       createdAt: DateTime.parse(json['created_at']),
     );
   }
@@ -33,6 +36,7 @@ class CustomerModel {
       'phone': phone,
       'owner_id': ownerId,
       'auth_user_id': authUserId,
+      'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
     };
   }
