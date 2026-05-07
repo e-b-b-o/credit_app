@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/supabase_service.dart';
 import '../../../data/models/customer_model.dart';
+import '../dashboard/owner_dashboard_screen.dart' show dashboardStatsProvider;
 
 final customersProvider = FutureProvider<List<CustomerModel>>((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
@@ -12,7 +13,11 @@ final customersProvider = FutureProvider<List<CustomerModel>>((ref) async {
 class CustomerListScreen extends ConsumerWidget {
   const CustomerListScreen({Key? key}) : super(key: key);
 
-  void _showCreateCredentialsDialog(BuildContext context, WidgetRef ref, CustomerModel customer) {
+  void _showCreateCredentialsDialog(
+    BuildContext context,
+    WidgetRef ref,
+    CustomerModel customer,
+  ) {
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
     bool isLoading = false;
@@ -39,32 +44,53 @@ class CustomerListScreen extends ConsumerWidget {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               TextButton(
-                onPressed: isLoading ? null : () async {
-                  if (emailController.text.isEmpty || passwordController.text.isEmpty) return;
-                  setState(() => isLoading = true);
-                  try {
-                    await ref.read(supabaseServiceProvider).createCustomerCredentials(
-                      emailController.text.trim(),
-                      passwordController.text.trim(),
-                      customer.id,
-                    );
-                    if (!context.mounted) return;
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Credentials created successfully')));
-                    ref.invalidate(customersProvider);
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    setState(() => isLoading = false);
-                  }
-                },
-                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Create'),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (emailController.text.isEmpty ||
+                            passwordController.text.isEmpty)
+                          return;
+                        setState(() => isLoading = true);
+                        try {
+                          await ref
+                              .read(supabaseServiceProvider)
+                              .createCustomerCredentials(
+                                emailController.text.trim(),
+                                passwordController.text.trim(),
+                                customer.id,
+                              );
+                          if (!context.mounted) return;
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Credentials created successfully'),
+                            ),
+                          );
+                          ref.invalidate(customersProvider);
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          setState(() => isLoading = false);
+                        }
+                      },
+                child: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Create'),
               ),
             ],
           );
-        }
+        },
       ),
     );
   }
@@ -96,34 +122,56 @@ class CustomerListScreen extends ConsumerWidget {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               TextButton(
-                onPressed: isLoading ? null : () async {
-                  if (nameController.text.trim().isEmpty || phoneController.text.trim().isEmpty) return;
-                  setState(() => isLoading = true);
-                  try {
-                    final customer = await ref.read(supabaseServiceProvider).addCustomer(
-                      nameController.text.trim(),
-                      phoneController.text.trim(),
-                    );
-                    if (!context.mounted) return;
-                    Navigator.pop(ctx);
-                    ref.invalidate(customersProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Customer added successfully')));
-                    
-                    // Prompt to create login
-                    _showCreateCredentialsDialog(context, ref, customer);
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    setState(() => isLoading = false);
-                  }
-                },
-                child: isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Add'),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (nameController.text.trim().isEmpty ||
+                            phoneController.text.trim().isEmpty)
+                          return;
+                        setState(() => isLoading = true);
+                        try {
+                          final customer = await ref
+                              .read(supabaseServiceProvider)
+                              .addCustomer(
+                                nameController.text.trim(),
+                                phoneController.text.trim(),
+                              );
+                          if (!context.mounted) return;
+                          Navigator.pop(ctx);
+                          ref.invalidate(customersProvider);
+                          ref.invalidate(dashboardStatsProvider);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Customer added successfully'),
+                            ),
+                          );
+
+                          // Prompt to create login
+                          _showCreateCredentialsDialog(context, ref, customer);
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          setState(() => isLoading = false);
+                        }
+                      },
+                child: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Add'),
               ),
             ],
           );
-        }
+        },
       ),
     );
   }
@@ -133,9 +181,7 @@ class CustomerListScreen extends ConsumerWidget {
     final customersAsync = ref.watch(customersProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Customers'),
-      ),
+      appBar: AppBar(title: const Text('Customers')),
       body: customersAsync.when(
         data: (customers) {
           if (customers.isEmpty) {
@@ -160,27 +206,53 @@ class CustomerListScreen extends ConsumerWidget {
                         context: context,
                         builder: (ctx) => AlertDialog(
                           title: const Text('Deactivate Customer'),
-                          content: const Text('Are you sure you want to deactivate this customer? They will no longer appear in the active lists.'),
+                          content: const Text(
+                            'Are you sure you want to deactivate this customer? They will no longer appear in the active lists.',
+                          ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Deactivate', style: TextStyle(color: Colors.red))),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text(
+                                'Deactivate',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
                           ],
-                        )
+                        ),
                       );
                       if (confirm == true) {
-                        await ref.read(supabaseServiceProvider).deactivateCustomer(customer.id);
+                        await ref
+                            .read(supabaseServiceProvider)
+                            .deactivateCustomer(customer.id);
                         ref.invalidate(customersProvider);
+                        ref.invalidate(dashboardStatsProvider);
                       }
                     }
                   },
                   itemBuilder: (context) => [
                     if (customer.authUserId == null)
-                      const PopupMenuItem(value: 'create_login', child: Text('Create Login')),
-                    const PopupMenuItem(value: 'deactivate', child: Text('Deactivate', style: TextStyle(color: Colors.red))),
+                      const PopupMenuItem(
+                        value: 'create_login',
+                        child: Text('Create Login'),
+                      ),
+                    const PopupMenuItem(
+                      value: 'deactivate',
+                      child: Text(
+                        'Deactivate',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
                   ],
                 ),
                 onTap: () {
-                  context.push('/owner/customers/${customer.id}', extra: customer);
+                  context.push(
+                    '/owner/customers/${customer.id}',
+                    extra: customer,
+                  );
                 },
               );
             },

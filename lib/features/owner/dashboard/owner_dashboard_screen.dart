@@ -86,7 +86,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                         const SizedBox(height: 8),
                         statsAsync.when(
                           data: (stats) => Text(
-                            '\$${(stats['totalOutstanding'] as double).toStringAsFixed(2)}',
+                            FinancialCalculator.formatCurrency(stats['totalOutstanding'] as double),
                             style: Theme.of(context).textTheme.displayMedium?.copyWith(
                                   color: AppColors.white,
                                 ),

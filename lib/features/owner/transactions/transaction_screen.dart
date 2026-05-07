@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/supabase_service.dart';
 import '../../../data/models/transaction_model.dart';
 import '../customers/customer_ledger_screen.dart' show customerLedgerProvider;
+import '../../../shared/utils/financial_calculator.dart';
+import '../dashboard/owner_dashboard_screen.dart' show dashboardStatsProvider;
 
-final allTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
+final allTransactionsProvider = FutureProvider<List<TransactionModel>>((
+  ref,
+) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
   return supabaseService.getAllTransactions();
 });
@@ -17,7 +21,9 @@ class TransactionScreen extends ConsumerWidget {
     final customers = await ref.read(supabaseServiceProvider).getCustomers();
     if (!context.mounted) return;
     if (customers.isEmpty) {
-      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Add a customer first')));
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Add a customer first')),
+      );
       return;
     }
 
@@ -38,26 +44,45 @@ class TransactionScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Customer', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Customer',
+                    border: OutlineInputBorder(),
+                  ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: selectedCustomerId,
                       isDense: true,
-                      items: customers.map((c) => DropdownMenuItem<String>(value: c.id, child: Text(c.name))).toList(),
+                      items: customers
+                          .map(
+                            (c) => DropdownMenuItem<String>(
+                              value: c.id,
+                              child: Text(c.name),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (v) => setState(() => selectedCustomerId = v),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    border: OutlineInputBorder(),
+                  ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: type,
                       isDense: true,
                       items: const [
-                        DropdownMenuItem<String>(value: 'credit', child: Text('Give Credit')),
-                        DropdownMenuItem<String>(value: 'payment', child: Text('Receive Payment')),
+                        DropdownMenuItem<String>(
+                          value: 'credit',
+                          child: Text('Give Credit'),
+                        ),
+                        DropdownMenuItem<String>(
+                          value: 'payment',
+                          child: Text('Receive Payment'),
+                        ),
                       ],
                       onChanged: (v) => setState(() => type = v!),
                     ),
@@ -65,52 +90,81 @@ class TransactionScreen extends ConsumerWidget {
                 ),
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Title / Item (e.g. Rice and Oil)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Title / Item (e.g. Rice and Oil)',
+                  ),
                 ),
                 TextField(
                   controller: amountController,
                   decoration: const InputDecoration(labelText: 'Amount'),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
                 TextField(
                   controller: noteController,
-                  decoration: const InputDecoration(labelText: 'Note (Optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Note (Optional)',
+                  ),
                 ),
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               TextButton(
-                onPressed: isLoading ? null : () async {
-                  final amount = double.tryParse(amountController.text);
-                  if (amount == null || amount <= 0 || selectedCustomerId == null) return;
-                  
-                  setState(() => isLoading = true);
-                  try {
-                    await ref.read(supabaseServiceProvider).addTransaction(
-                      selectedCustomerId!,
-                      amount,
-                      type,
-                      title: titleController.text.trim().isEmpty ? null : titleController.text.trim(),
-                      note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
-                    );
-                    if (!context.mounted) return;
-                    Navigator.pop(ctx);
-                    ref.invalidate(allTransactionsProvider);
-                    // Also invalidate the customer's ledger if it's open
-                    ref.invalidate(customerLedgerProvider(selectedCustomerId!));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transaction added')));
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    setState(() => isLoading = false);
-                  }
-                },
-                child: isLoading ? const CircularProgressIndicator() : const Text('Add'),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        final amount = double.tryParse(amountController.text);
+                        if (amount == null ||
+                            amount <= 0 ||
+                            selectedCustomerId == null)
+                          return;
+
+                        setState(() => isLoading = true);
+                        try {
+                          await ref
+                              .read(supabaseServiceProvider)
+                              .addTransaction(
+                                selectedCustomerId!,
+                                amount,
+                                type,
+                                title: titleController.text.trim().isEmpty
+                                    ? null
+                                    : titleController.text.trim(),
+                                note: noteController.text.trim().isEmpty
+                                    ? null
+                                    : noteController.text.trim(),
+                              );
+                          if (!context.mounted) return;
+                          Navigator.pop(ctx);
+                          ref.invalidate(allTransactionsProvider);
+                          ref.invalidate(dashboardStatsProvider);
+                          // Also invalidate the customer's ledger if it's open
+                          ref.invalidate(
+                            customerLedgerProvider(selectedCustomerId!),
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Transaction added')),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          setState(() => isLoading = false);
+                        }
+                      },
+                child: isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Add'),
               ),
             ],
           );
-        }
+        },
       ),
     );
   }
@@ -120,9 +174,7 @@ class TransactionScreen extends ConsumerWidget {
     final transactionsAsync = ref.watch(allTransactionsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('All Transactions'),
-      ),
+      appBar: AppBar(title: const Text('All Transactions')),
       body: transactionsAsync.when(
         data: (transactions) {
           if (transactions.isEmpty) {
@@ -141,11 +193,11 @@ class TransactionScreen extends ConsumerWidget {
                 title: Text(isCredit ? 'Credit Given' : 'Payment Received'),
                 subtitle: Text(tx.date.toString().split(' ')[0]),
                 trailing: Text(
-                  '\$${tx.amount.toStringAsFixed(2)}',
+                  FinancialCalculator.formatCurrency(tx.amount),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: isCredit ? Colors.red : Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    color: isCredit ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               );
             },

@@ -8,6 +8,11 @@ enum PaymentStatus {
 }
 
 class FinancialCalculator {
+  static String formatCurrency(double amount) {
+    // Ethiopian currency formatting
+    return 'ETB ${amount.toStringAsFixed(2)}';
+  }
+
   static double calculateTotalCredits(List<TransactionModel> transactions) {
     return transactions
         .where((t) => t.type == 'credit')
@@ -23,15 +28,22 @@ class FinancialCalculator {
   static double calculateRemainingBalance(List<TransactionModel> transactions) {
     final totalCredits = calculateTotalCredits(transactions);
     final totalPayments = calculateTotalPayments(transactions);
-    return totalCredits - totalPayments;
+    final balance = totalCredits - totalPayments;
+    
+    // Ensure we don't have weird floating point issues near zero
+    if (balance.abs() < 0.001) return 0.0;
+    
+    return balance;
   }
 
   static PaymentStatus calculatePaymentStatus(List<TransactionModel> transactions) {
     final totalCredits = calculateTotalCredits(transactions);
     final totalPayments = calculateTotalPayments(transactions);
-    final remaining = totalCredits - totalPayments;
+    final remaining = calculateRemainingBalance(transactions);
 
-    if (totalCredits == 0) return PaymentStatus.paid; // No credits
+    if (totalCredits == 0) {
+      return totalPayments > 0 ? PaymentStatus.paid : PaymentStatus.pending;
+    }
 
     if (remaining <= 0) {
       return PaymentStatus.paid;

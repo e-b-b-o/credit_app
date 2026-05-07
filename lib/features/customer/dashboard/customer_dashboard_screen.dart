@@ -124,7 +124,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '\$${balance.toStringAsFixed(2)}',
+                              FinancialCalculator.formatCurrency(balance),
                               style: Theme.of(context).textTheme.displayMedium?.copyWith(
                                     color: AppColors.white,
                                   ),

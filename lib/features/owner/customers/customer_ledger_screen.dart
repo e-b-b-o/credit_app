@@ -5,13 +5,19 @@ import '../../../data/models/transaction_model.dart';
 import '../../../data/services/supabase_service.dart';
 import '../../../shared/utils/financial_calculator.dart';
 import '../../../core/theme/app_colors.dart';
+import '../transactions/transaction_screen.dart' show allTransactionsProvider;
+import '../dashboard/owner_dashboard_screen.dart' show dashboardStatsProvider;
 
 // Family provider — keyed by customerId. All watchers auto-refresh on invalidation.
-final customerLedgerProvider = FutureProvider.family<List<TransactionModel>, String>(
-  (ref, customerId) async {
-    return ref.watch(supabaseServiceProvider).getTransactionsForCustomer(customerId);
-  },
-);
+final customerLedgerProvider =
+    FutureProvider.family<List<TransactionModel>, String>((
+      ref,
+      customerId,
+    ) async {
+      return ref
+          .watch(supabaseServiceProvider)
+          .getTransactionsForCustomer(customerId);
+    });
 
 class CustomerLedgerScreen extends ConsumerWidget {
   final CustomerModel customer;
@@ -36,9 +42,11 @@ class CustomerLedgerScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: Text(existing == null
-              ? (type == 'credit' ? 'Add Credit' : 'Record Payment')
-              : 'Edit Transaction'),
+          title: Text(
+            existing == null
+                ? (type == 'credit' ? 'Add Credit' : 'Record Payment')
+                : 'Edit Transaction',
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -46,14 +54,22 @@ class CustomerLedgerScreen extends ConsumerWidget {
                 if (existing == null)
                   InputDecorator(
                     decoration: const InputDecoration(
-                        labelText: 'Type', border: OutlineInputBorder()),
+                      labelText: 'Type',
+                      border: OutlineInputBorder(),
+                    ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: type,
                         isDense: true,
                         items: const [
-                          DropdownMenuItem(value: 'credit', child: Text('Credit (give goods)')),
-                          DropdownMenuItem(value: 'payment', child: Text('Payment (receive money)')),
+                          DropdownMenuItem(
+                            value: 'credit',
+                            child: Text('Credit (give goods)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'payment',
+                            child: Text('Payment (receive money)'),
+                          ),
                         ],
                         onChanged: (v) => setState(() => type = v!),
                       ),
@@ -73,9 +89,11 @@ class CustomerLedgerScreen extends ConsumerWidget {
                   decoration: const InputDecoration(
                     labelText: 'Amount',
                     border: OutlineInputBorder(),
-                    prefixText: '\$ ',
+                    prefixText: 'ETB ',
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextField(
@@ -90,7 +108,10 @@ class CustomerLedgerScreen extends ConsumerWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
               onPressed: isLoading
                   ? null
@@ -100,47 +121,62 @@ class CustomerLedgerScreen extends ConsumerWidget {
                       setState(() => isLoading = true);
                       try {
                         if (existing == null) {
-                          await ref.read(supabaseServiceProvider).addTransaction(
-                            customer.id,
-                            amount,
-                            type,
-                            title: titleController.text.trim().isEmpty
-                                ? null
-                                : titleController.text.trim(),
-                            note: noteController.text.trim().isEmpty
-                                ? null
-                                : noteController.text.trim(),
-                          );
+                          await ref
+                              .read(supabaseServiceProvider)
+                              .addTransaction(
+                                customer.id,
+                                amount,
+                                type,
+                                title: titleController.text.trim().isEmpty
+                                    ? null
+                                    : titleController.text.trim(),
+                                note: noteController.text.trim().isEmpty
+                                    ? null
+                                    : noteController.text.trim(),
+                              );
                         } else {
-                          await ref.read(supabaseServiceProvider).updateTransaction(
-                            existing.id,
-                            amount: amount,
-                            title: titleController.text.trim().isEmpty
-                                ? null
-                                : titleController.text.trim(),
-                            note: noteController.text.trim().isEmpty
-                                ? null
-                                : noteController.text.trim(),
-                          );
+                          await ref
+                              .read(supabaseServiceProvider)
+                              .updateTransaction(
+                                existing.id,
+                                amount: amount,
+                                title: titleController.text.trim().isEmpty
+                                    ? null
+                                    : titleController.text.trim(),
+                                note: noteController.text.trim().isEmpty
+                                    ? null
+                                    : noteController.text.trim(),
+                              );
                         }
-                        // Invalidate all providers that depend on this customer's transactions
+                        // Invalidate all providers that depend on transactions
                         ref.invalidate(customerLedgerProvider(customer.id));
+                        ref.invalidate(allTransactionsProvider);
+                        ref.invalidate(dashboardStatsProvider);
                         if (!ctx.mounted) return;
                         Navigator.pop(ctx);
-                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                            content: Text(existing == null
-                                ? 'Transaction added'
-                                : 'Transaction updated')));
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              existing == null
+                                  ? 'Transaction added'
+                                  : 'Transaction updated',
+                            ),
+                          ),
+                        );
                       } catch (e) {
                         if (!ctx.mounted) return;
-                        ScaffoldMessenger.of(ctx)
-                            .showSnackBar(SnackBar(content: Text('Error: $e')));
+                        ScaffoldMessenger.of(
+                          ctx,
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
                         setState(() => isLoading = false);
                       }
                     },
               child: isLoading
                   ? const SizedBox(
-                      width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : Text(existing == null ? 'Add' : 'Save'),
             ),
           ],
@@ -150,15 +186,23 @@ class CustomerLedgerScreen extends ConsumerWidget {
   }
 
   // ─── Delete Confirmation ──────────────────────────────────────────────────
-  void _confirmDelete(BuildContext context, WidgetRef ref, TransactionModel tx) async {
+  void _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    TransactionModel tx,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Transaction'),
         content: Text(
-            'Delete "${tx.title ?? tx.type}" for \$${tx.amount.toStringAsFixed(2)}? This cannot be undone.'),
+          'Delete "${tx.title ?? tx.type}" for ${FinancialCalculator.formatCurrency(tx.amount)}? This cannot be undone.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -170,13 +214,17 @@ class CustomerLedgerScreen extends ConsumerWidget {
       try {
         await ref.read(supabaseServiceProvider).deleteTransaction(tx.id);
         ref.invalidate(customerLedgerProvider(customer.id));
+        ref.invalidate(allTransactionsProvider);
+        ref.invalidate(dashboardStatsProvider);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Transaction deleted')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Transaction deleted')));
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -189,28 +237,29 @@ class CustomerLedgerScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(customerLedgerProvider(customer.id)),
+        onRefresh: () async =>
+            ref.invalidate(customerLedgerProvider(customer.id)),
         child: CustomScrollView(
           slivers: [
             // ── App Bar ────────────────────────────────────────────────────
             SliverAppBar(
-              expandedHeight: 220,
+              expandedHeight: 180,
               pinned: true,
               stretch: true,
               backgroundColor: AppColors.primary,
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
               centerTitle: true,
-              title: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: 1.0, // We could use a scroll controller to fade this, but pinned title is standard
-                child: Text(
-                  customer.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
               flexibleSpace: FlexibleSpaceBar(
-                stretchModes: const [StretchMode.zoomBackground],
+                centerTitle: true,
+                title: Text(
+                  customer.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 18,
+                  ),
+                ),
                 background: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -226,19 +275,24 @@ class CustomerLedgerScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 40), // Space for status bar/back button
+                        const SizedBox(height: 20),
                         Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              width: 2,
+                            ),
                           ),
                           child: CircleAvatar(
-                            radius: 35,
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            radius: 30,
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.2,
+                            ),
                             child: Text(
                               customer.name[0].toUpperCase(),
                               style: const TextStyle(
-                                fontSize: 32,
+                                fontSize: 28,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -246,18 +300,11 @@ class CustomerLedgerScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          customer.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
@@ -271,6 +318,9 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(
+                          height: 40,
+                        ), // Space for title when expanded
                       ],
                     ),
                   ),
@@ -290,14 +340,18 @@ class CustomerLedgerScreen extends ConsumerWidget {
                   child: Center(child: Text('Error loading ledger: $e')),
                 ),
                 data: (transactions) {
-                  final totalCredit =
-                      FinancialCalculator.calculateTotalCredits(transactions);
-                  final totalPaid =
-                      FinancialCalculator.calculateTotalPayments(transactions);
-                  final balance =
-                      FinancialCalculator.calculateRemainingBalance(transactions);
-                  final status =
-                      FinancialCalculator.calculatePaymentStatus(transactions);
+                  final totalCredit = FinancialCalculator.calculateTotalCredits(
+                    transactions,
+                  );
+                  final totalPaid = FinancialCalculator.calculateTotalPayments(
+                    transactions,
+                  );
+                  final balance = FinancialCalculator.calculateRemainingBalance(
+                    transactions,
+                  );
+                  final status = FinancialCalculator.calculatePaymentStatus(
+                    transactions,
+                  );
 
                   Color statusColor;
                   IconData statusIcon;
@@ -327,11 +381,17 @@ class CustomerLedgerScreen extends ConsumerWidget {
                         // Status badge
                         Center(
                           child: Chip(
-                            avatar: Icon(statusIcon, color: statusColor, size: 16),
+                            avatar: Icon(
+                              statusIcon,
+                              color: statusColor,
+                              size: 16,
+                            ),
                             label: Text(
                               FinancialCalculator.getStatusText(status),
                               style: TextStyle(
-                                  color: statusColor, fontWeight: FontWeight.bold),
+                                color: statusColor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             backgroundColor: statusColor.withValues(alpha: 0.1),
                             side: BorderSide(color: statusColor),
@@ -341,25 +401,37 @@ class CustomerLedgerScreen extends ConsumerWidget {
                         // Summary row
                         Card(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 8,
+                            ),
                             child: Row(
                               children: [
                                 _SummaryCell(
-                                    label: 'Total Credit',
-                                    value: '\$${totalCredit.toStringAsFixed(2)}',
-                                    color: Colors.red.shade700),
+                                  label: 'Total Credit',
+                                  value: FinancialCalculator.formatCurrency(
+                                    totalCredit,
+                                  ),
+                                  color: Colors.red.shade700,
+                                ),
                                 _divider(),
                                 _SummaryCell(
-                                    label: 'Total Paid',
-                                    value: '\$${totalPaid.toStringAsFixed(2)}',
-                                    color: Colors.green.shade700),
+                                  label: 'Total Paid',
+                                  value: FinancialCalculator.formatCurrency(
+                                    totalPaid,
+                                  ),
+                                  color: Colors.green.shade700,
+                                ),
                                 _divider(),
                                 _SummaryCell(
-                                    label: 'Balance',
-                                    value: '\$${balance.toStringAsFixed(2)}',
-                                    color: balance > 0
-                                        ? Colors.orange.shade800
-                                        : Colors.green.shade700),
+                                  label: 'Balance',
+                                  value: FinancialCalculator.formatCurrency(
+                                    balance,
+                                  ),
+                                  color: balance > 0
+                                      ? Colors.orange.shade800
+                                      : Colors.green.shade700,
+                                ),
                               ],
                             ),
                           ),
@@ -371,22 +443,30 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             Expanded(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                    backgroundColor: Colors.red.shade600),
+                                  backgroundColor: Colors.red.shade600,
+                                ),
                                 icon: const Icon(Icons.add),
                                 label: const Text('Add Credit'),
-                                onPressed: () => _showTransactionDialog(context, ref,
-                                    defaultType: 'credit'),
+                                onPressed: () => _showTransactionDialog(
+                                  context,
+                                  ref,
+                                  defaultType: 'credit',
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                    backgroundColor: Colors.green.shade600),
+                                  backgroundColor: Colors.green.shade600,
+                                ),
                                 icon: const Icon(Icons.payments),
                                 label: const Text('Record Payment'),
-                                onPressed: () => _showTransactionDialog(context, ref,
-                                    defaultType: 'payment'),
+                                onPressed: () => _showTransactionDialog(
+                                  context,
+                                  ref,
+                                  defaultType: 'payment',
+                                ),
                               ),
                             ),
                           ],
@@ -394,9 +474,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                         const SizedBox(height: 20),
                         Text(
                           'Transaction History',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
@@ -419,11 +497,16 @@ class CustomerLedgerScreen extends ConsumerWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.receipt_long,
-                              size: 64, color: Colors.grey.shade300),
+                          Icon(
+                            Icons.receipt_long,
+                            size: 64,
+                            color: Colors.grey.shade300,
+                          ),
                           const SizedBox(height: 12),
-                          Text('No transactions yet',
-                              style: TextStyle(color: Colors.grey.shade500)),
+                          Text(
+                            'No transactions yet',
+                            style: TextStyle(color: Colors.grey.shade500),
+                          ),
                         ],
                       ),
                     ),
@@ -431,95 +514,110 @@ class CustomerLedgerScreen extends ConsumerWidget {
                 }
 
                 return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final tx = transactions[index];
-                      final isCredit = tx.type == 'credit';
-                      final color =
-                          isCredit ? Colors.red.shade600 : Colors.green.shade600;
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final tx = transactions[index];
+                    final isCredit = tx.type == 'credit';
+                    final color = isCredit
+                        ? Colors.red.shade600
+                        : Colors.green.shade600;
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 4),
-                        child: Card(
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: color.withValues(alpha: 0.12),
-                              child: Icon(
-                                isCredit
-                                    ? Icons.arrow_upward
-                                    : Icons.arrow_downward,
-                                color: color,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              tx.title?.isNotEmpty == true
-                                  ? tx.title!
-                                  : (isCredit ? 'Credit' : 'Payment'),
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (tx.note?.isNotEmpty == true)
-                                  Text(tx.note!,
-                                      style: const TextStyle(fontSize: 12)),
-                                Text(
-                                  _formatDate(tx.date),
-                                  style: TextStyle(
-                                      fontSize: 11, color: Colors.grey.shade500),
-                                ),
-                                if (tx.dueDate != null &&
-                                    tx.dueDate!.isBefore(DateTime.now()) &&
-                                    isCredit)
-                                  const Text('OVERDUE',
-                                      style: TextStyle(
-                                          color: Colors.red,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                            isThreeLine: tx.note?.isNotEmpty == true,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '\$${tx.amount.toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: color,
-                                      fontSize: 15),
-                                ),
-                                const SizedBox(width: 4),
-                                PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_vert, size: 18),
-                                  onSelected: (val) {
-                                    if (val == 'edit') {
-                                      _showTransactionDialog(context, ref,
-                                          existing: tx);
-                                    } else if (val == 'delete') {
-                                      _confirmDelete(context, ref, tx);
-                                    }
-                                  },
-                                  itemBuilder: (_) => const [
-                                    PopupMenuItem(
-                                        value: 'edit', child: Text('Edit')),
-                                    PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text('Delete',
-                                            style:
-                                                TextStyle(color: Colors.red))),
-                                  ],
-                                ),
-                              ],
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: Card(
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: color.withValues(alpha: 0.12),
+                            child: Icon(
+                              isCredit
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward,
+                              color: color,
+                              size: 20,
                             ),
                           ),
+                          title: Text(
+                            tx.title?.isNotEmpty == true
+                                ? tx.title!
+                                : (isCredit ? 'Credit' : 'Payment'),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (tx.note?.isNotEmpty == true)
+                                Text(
+                                  tx.note!,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              Text(
+                                _formatDate(tx.date),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                              if (tx.dueDate != null &&
+                                  tx.dueDate!.isBefore(DateTime.now()) &&
+                                  isCredit)
+                                const Text(
+                                  'OVERDUE',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          isThreeLine: tx.note?.isNotEmpty == true,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                FinancialCalculator.formatCurrency(tx.amount),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: color,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, size: 18),
+                                onSelected: (val) {
+                                  if (val == 'edit') {
+                                    _showTransactionDialog(
+                                      context,
+                                      ref,
+                                      existing: tx,
+                                    );
+                                  } else if (val == 'delete') {
+                                    _confirmDelete(context, ref, tx);
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('Edit'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      );
-                    },
-                    childCount: transactions.length,
-                  ),
+                      ),
+                    );
+                  }, childCount: transactions.length),
                 );
               },
             ),
@@ -531,12 +629,23 @@ class CustomerLedgerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _divider() => Container(width: 1, height: 40, color: Colors.grey.shade200);
+  Widget _divider() =>
+      Container(width: 1, height: 40, color: Colors.grey.shade200);
 
   String _formatDate(DateTime dt) {
     final months = [
-      'Jan','Feb','Mar','Apr','May','Jun',
-      'Jul','Aug','Sep','Oct','Nov','Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
@@ -546,19 +655,30 @@ class _SummaryCell extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _SummaryCell({required this.label, required this.value, required this.color});
+  const _SummaryCell({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Column(
         children: [
-          Text(value,
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 16, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(label,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          ),
         ],
       ),
     );

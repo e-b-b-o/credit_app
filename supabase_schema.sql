@@ -92,7 +92,29 @@ with check (
     )
 );
 
--- 3. Customers can read their own transactions
+-- 3. Owners can update transactions of their customers
+create policy "Owners can update transactions of their customers"
+on public.transactions for update
+using (
+    exists (
+        select 1 from public.customers 
+        where customers.id = transactions.customer_id 
+        and customers.owner_id = auth.uid()
+    )
+);
+
+-- 4. Owners can delete transactions of their customers
+create policy "Owners can delete transactions of their customers"
+on public.transactions for delete
+using (
+    exists (
+        select 1 from public.customers 
+        where customers.id = transactions.customer_id 
+        and customers.owner_id = auth.uid()
+    )
+);
+
+-- 5. Customers can read their own transactions
 create policy "Customers can read their own transactions"
 on public.transactions for select
 using (

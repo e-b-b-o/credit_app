@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../dashboard/owner_dashboard_screen.dart';
+import '../../../shared/utils/financial_calculator.dart';
 
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
@@ -10,9 +11,7 @@ class ReportsScreen extends ConsumerWidget {
     final statsAsync = ref.watch(dashboardStatsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reports'),
-      ),
+      appBar: AppBar(title: const Text('Reports')),
       body: statsAsync.when(
         data: (stats) {
           return Padding(
@@ -24,14 +23,25 @@ class ReportsScreen extends ConsumerWidget {
                   child: ListTile(
                     leading: const Icon(Icons.people),
                     title: const Text('Total Active Customers'),
-                    trailing: Text(stats['customersCount'].toString(), style: const TextStyle(fontSize: 20)),
+                    trailing: Text(
+                      stats['customersCount'].toString(),
+                      style: const TextStyle(fontSize: 20),
+                    ),
                   ),
                 ),
                 Card(
                   child: ListTile(
-                    leading: const Icon(Icons.attach_money),
+                    leading: const Icon(Icons.account_balance_wallet),
                     title: const Text('Total Outstanding'),
-                    trailing: Text('\$${(stats['totalOutstanding'] as double).toStringAsFixed(2)}', style: const TextStyle(fontSize: 20)),
+                    trailing: Text(
+                      FinancialCalculator.formatCurrency(
+                        stats['totalOutstanding'] as double,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],

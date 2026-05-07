@@ -20,11 +20,22 @@ class SupabaseService {
 
   // Auth Methods
   Future<AuthResponse> signIn(String email, String password) async {
-    return await _client.auth.signInWithPassword(email: email, password: password);
+    return await _client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
   }
 
-  Future<AuthResponse> signUp(String email, String password, Map<String, dynamic> data) async {
-    return await _client.auth.signUp(email: email, password: password, data: data);
+  Future<AuthResponse> signUp(
+    String email,
+    String password,
+    Map<String, dynamic> data,
+  ) async {
+    return await _client.auth.signUp(
+      email: email,
+      password: password,
+      data: data,
+    );
   }
 
   Future<void> signOut() async {
@@ -40,16 +51,30 @@ class SupabaseService {
 
   // Customers
   Future<List<CustomerModel>> getCustomers() async {
+    final ownerId = currentUser?.id;
+    if (ownerId == null) return [];
+
     final response = await _client
         .from('customers')
         .select()
+        .eq('owner_id', ownerId)
         .eq('is_active', true)
         .order('created_at', ascending: false);
-    return (response as List).map((json) => CustomerModel.fromJson(json)).toList();
+    return (response as List)
+        .map((json) => CustomerModel.fromJson(json))
+        .toList();
   }
 
   Future<CustomerModel> getCustomerById(String id) async {
-    final response = await _client.from('customers').select().eq('id', id).single();
+    final ownerId = currentUser?.id;
+    if (ownerId == null) throw Exception('Not logged in');
+
+    final response = await _client
+        .from('customers')
+        .select()
+        .eq('id', id)
+        .eq('owner_id', ownerId)
+        .single();
     return CustomerModel.fromJson(response);
   }
 
@@ -57,17 +82,20 @@ class SupabaseService {
     final ownerId = currentUser?.id;
     if (ownerId == null) throw Exception('Not logged in');
 
-    final response = await _client.from('customers').insert({
-      'name': name,
-      'phone': phone,
-      'owner_id': ownerId,
-    }).select().single();
+    final response = await _client
+        .from('customers')
+        .insert({'name': name, 'phone': phone, 'owner_id': ownerId})
+        .select()
+        .single();
 
     return CustomerModel.fromJson(response);
   }
 
   Future<void> deactivateCustomer(String customerId) async {
-    await _client.from('customers').update({'is_active': false}).eq('id', customerId);
+    await _client
+        .from('customers')
+        .update({'is_active': false})
+        .eq('id', customerId);
   }
 
   Future<CustomerModel> getCurrentCustomerProfile() async {
@@ -81,7 +109,11 @@ class SupabaseService {
     return CustomerModel.fromJson(response);
   }
 
-  Future<void> createCustomerCredentials(String email, String password, String customerId) async {
+  Future<void> createCustomerCredentials(
+    String email,
+    String password,
+    String customerId,
+  ) async {
     final ownerId = currentUser?.id;
     if (ownerId == null) throw Exception('Not logged in');
 
@@ -106,7 +138,10 @@ class SupabaseService {
       );
 
       final newUserId = response.user?.id;
-      if (newUserId == null) throw Exception('Failed to create user auth record. Ensure email confirmation is disabled in Supabase.');
+      if (newUserId == null)
+        throw Exception(
+          'Failed to create user auth record. Ensure email confirmation is disabled in Supabase.',
+        );
 
       // 2. Link the new auth user id to the customer record using the OWNER's authenticated client
       // (This respects RLS: owners can only update their own customers)
@@ -116,7 +151,7 @@ class SupabaseService {
           .eq('id', customerId)
           .eq('owner_id', ownerId)
           .select();
-          
+
       if (updateResponse.isEmpty) {
         throw Exception('Failed to link auth account to customer record');
       }
@@ -126,22 +161,33 @@ class SupabaseService {
   }
 
   // Transactions
-  Future<List<TransactionModel>> getTransactionsForCustomer(String customerId) async {
+  Future<List<TransactionModel>> getTransactionsForCustomer(
+    String customerId,
+  ) async {
     final response = await _client
         .from('transactions')
         .select()
         .eq('customer_id', customerId)
         .order('date', ascending: false);
-    return (response as List).map((json) => TransactionModel.fromJson(json)).toList();
+    return (response as List)
+        .map((json) => TransactionModel.fromJson(json))
+        .toList();
   }
-  
+
   Future<List<TransactionModel>> getAllTransactions() async {
-    // Relies on RLS to only fetch the ones allowed
+    final ownerId = currentUser?.id;
+    if (ownerId == null) return [];
+
+    // Filter transactions by joining with customers and checking owner_id
     final response = await _client
         .from('transactions')
-        .select()
+        .select('*, customers!inner(owner_id)')
+        .eq('customers.owner_id', ownerId)
         .order('date', ascending: false);
-    return (response as List).map((json) => TransactionModel.fromJson(json)).toList();
+
+    return (response as List)
+        .map((json) => TransactionModel.fromJson(json))
+        .toList();
   }
 
   Future<TransactionModel> addTransaction(
@@ -152,15 +198,19 @@ class SupabaseService {
     String? note,
     DateTime? dueDate,
   }) async {
-    final response = await _client.from('transactions').insert({
-      'customer_id': customerId,
-      'amount': amount,
-      'type': type,
-      'title': title,
-      'note': note,
-      'due_date': dueDate?.toIso8601String(),
-      'date': DateTime.now().toIso8601String(),
-    }).select().single();
+    final response = await _client
+        .from('transactions')
+        .insert({
+          'customer_id': customerId,
+          'amount': amount,
+          'type': type,
+          'title': title,
+          'note': note,
+          'due_date': dueDate?.toIso8601String(),
+          'date': DateTime.now().toIso8601String(),
+        })
+        .select()
+        .single();
 
     return TransactionModel.fromJson(response);
   }
@@ -194,24 +244,45 @@ class SupabaseService {
 
   // Complaints
   Future<List<ComplaintModel>> getComplaints() async {
+    final ownerId = currentUser?.id;
+    if (ownerId == null) return [];
+
     final response = await _client
         .from('complaints')
         .select()
+        .eq('owner_id', ownerId)
         .order('created_at', ascending: false);
-    return (response as List).map((json) => ComplaintModel.fromJson(json)).toList();
+    return (response as List)
+        .map((json) => ComplaintModel.fromJson(json))
+        .toList();
   }
 
-  Future<ComplaintModel> submitComplaint(String customerId, String ownerId, String message) async {
-    final response = await _client.from('complaints').insert({
-      'customer_id': customerId,
-      'owner_id': ownerId,
-      'message': message,
-    }).select().single();
+  Future<ComplaintModel> submitComplaint(
+    String customerId,
+    String ownerId,
+    String message,
+  ) async {
+    final response = await _client
+        .from('complaints')
+        .insert({
+          'customer_id': customerId,
+          'owner_id': ownerId,
+          'message': message,
+        })
+        .select()
+        .single();
 
     return ComplaintModel.fromJson(response);
   }
 
-  Future<void> resolveComplaint(String complaintId, String newStatus) async {
-    await _client.from('complaints').update({'status': newStatus}).eq('id', complaintId);
+  Future<void> resolveComplaint(String complaintId, String status) async {
+    final ownerId = currentUser?.id;
+    if (ownerId == null) throw Exception('Not logged in');
+
+    await _client
+        .from('complaints')
+        .update({'status': status})
+        .eq('id', complaintId)
+        .eq('owner_id', ownerId);
   }
 }
