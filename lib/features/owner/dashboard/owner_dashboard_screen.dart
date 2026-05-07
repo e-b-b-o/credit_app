@@ -152,65 +152,60 @@ class OwnerDashboardScreen extends ConsumerWidget {
                 return statsAsync.when(
                   data: (stats) => Column(
                     children: [
-                      Card(
-                        color: AppColors.primary,
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Total Outstanding',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(
-                                      color: AppColors.white.withValues(
-                                        alpha: 0.8,
-                                      ),
-                                    ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                FinancialCalculator.formatCurrency(
-                                  stats['totalOutstanding'] as double,
-                                ),
-                                style: Theme.of(context).textTheme.displayMedium
-                                    ?.copyWith(color: AppColors.white),
-                              ),
-                            ],
-                          ),
+                      _buildSummaryCard(
+                        context,
+                        'Total Outstanding',
+                        FinancialCalculator.formatCurrency(
+                          stats['totalOutstanding'] as double,
                         ),
+                        AppColors.primary,
                       ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
-                            child: _buildMiniStat(
+                            child: _buildSummaryCard(
                               context,
-                              'Total Debt',
+                              'Debt Given',
                               FinancialCalculator.formatCurrency(
                                 stats['totalDebt'] as double,
                               ),
-                              Colors.blueGrey.shade700,
+                              Colors.blueGrey.shade800,
+                              isMini: true,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: _buildMiniStat(
+                            child: _buildSummaryCard(
                               context,
-                              'Collected',
+                              'Repayments',
                               FinancialCalculator.formatCurrency(
                                 stats['totalCollected'] as double,
                               ),
-                              Colors.green.shade700,
+                              Colors.green.shade800,
+                              isMini: true,
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, st) =>
-                      Text('Error', style: TextStyle(color: Colors.red)),
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (e, st) => Card(
+                    color: Colors.red.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Error loading dashboard: $e',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
@@ -414,24 +409,38 @@ class OwnerDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMiniStat(
+  Widget _buildSummaryCard(
     BuildContext context,
     String label,
     String value,
-    Color color,
-  ) {
+    Color color, {
+    bool isMini = false,
+  }) {
     return Card(
+      color: color,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: EdgeInsets.all(isMini ? 16.0 : 24.0),
         child: Column(
           children: [
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 4),
             Text(
-              value,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
+              label,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppColors.white.withValues(alpha: 0.8),
+              ),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style:
+                    (isMini
+                            ? Theme.of(context).textTheme.headlineSmall
+                            : Theme.of(context).textTheme.displayMedium)
+                        ?.copyWith(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
               ),
             ),
           ],

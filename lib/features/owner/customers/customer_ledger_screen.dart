@@ -451,28 +451,81 @@ class CustomerLedgerScreen extends ConsumerWidget {
                       children: [
                         // Status badge
                         Center(
-                          child: Chip(
-                            avatar: Icon(
-                              statusIcon,
-                              color: statusColor,
-                              size: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                             ),
-                            label: Text(
-                              FinancialCalculator.getStatusText(status),
-                              style: TextStyle(
-                                color: statusColor,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(statusIcon, color: statusColor, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  FinancialCalculator.getStatusText(status).toUpperCase(),
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
-                            backgroundColor: statusColor.withValues(alpha: 0.1),
-                            side: BorderSide(color: statusColor),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Summary row
+                        Card(
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 20,
+                              horizontal: 16,
+                            ),
+                            child: Row(
+                              children: [
+                                _SummaryCell(
+                                  label: 'Debt',
+                                  value: FinancialCalculator.formatCurrency(
+                                    totalCredit,
+                                  ),
+                                  color: Colors.red.shade700,
+                                ),
+                                _divider(),
+                                _SummaryCell(
+                                  label: 'Repayments',
+                                  value: FinancialCalculator.formatCurrency(
+                                    totalPaid,
+                                  ),
+                                  color: Colors.green.shade700,
+                                ),
+                                _divider(),
+                                _SummaryCell(
+                                  label: 'Outstanding',
+                                  value: FinancialCalculator.formatCurrency(
+                                    balance,
+                                  ),
+                                  color: balance > 0
+                                      ? Colors.orange.shade800
+                                      : Colors.green.shade700,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
                         // Credit Limit Info
                         if (customer.creditLimit > 0)
                           Card(
+                            elevation: 0,
                             color: Colors.blueGrey.shade50,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.blueGrey.shade100),
+                            ),
                             child: Padding(
                               padding: const EdgeInsets.all(12.0),
                               child: Row(
@@ -480,13 +533,13 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                     MainAxisAlignment.spaceAround,
                                 children: [
                                   _SummarySmall(
-                                    label: 'Limit',
+                                    label: 'Credit Limit',
                                     value: FinancialCalculator.formatCurrency(
                                       customer.creditLimit,
                                     ),
                                   ),
                                   _SummarySmall(
-                                    label: 'Available',
+                                    label: 'Available Credit',
                                     value: FinancialCalculator.formatCurrency(
                                       remainingCredit,
                                     ),
@@ -500,56 +553,18 @@ class CustomerLedgerScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 12),
-                        // Summary row
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                _SummaryCell(
-                                  label: 'Total Credit',
-                                  value: FinancialCalculator.formatCurrency(
-                                    totalCredit,
-                                  ),
-                                  color: Colors.red.shade700,
-                                ),
-                                _divider(),
-                                _SummaryCell(
-                                  label: 'Total Paid',
-                                  value: FinancialCalculator.formatCurrency(
-                                    totalPaid,
-                                  ),
-                                  color: Colors.green.shade700,
-                                ),
-                                _divider(),
-                                _SummaryCell(
-                                  label: 'Balance',
-                                  value: FinancialCalculator.formatCurrency(
-                                    balance,
-                                  ),
-                                  color: balance > 0
-                                      ? Colors.orange.shade800
-                                      : Colors.green.shade700,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 20),
                         // Quick action buttons
                         Row(
                           children: [
                             Expanded(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: Colors.red.shade600,
+                                  backgroundColor: Colors.red.shade700,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
                                 ),
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add Credit'),
+                                icon: const Icon(Icons.add_shopping_cart, size: 20),
+                                label: const Text('Add Debt'),
                                 onPressed: () => _showTransactionDialog(
                                   context,
                                   ref,
@@ -562,10 +577,11 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             Expanded(
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: Colors.green.shade600,
+                                  backgroundColor: Colors.green.shade700,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
                                 ),
-                                icon: const Icon(Icons.payments),
-                                label: const Text('Record Payment'),
+                                icon: const Icon(Icons.account_balance_wallet, size: 20),
+                                label: const Text('Repayment'),
                                 onPressed: () => _showTransactionDialog(
                                   context,
                                   ref,
@@ -576,11 +592,17 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Transaction History',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            const Icon(Icons.history, size: 20, color: AppColors.textLight),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Debt History',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                       ],

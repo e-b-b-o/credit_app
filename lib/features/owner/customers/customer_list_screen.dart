@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/services/supabase_service.dart';
 import '../../../data/models/customer_model.dart';
+import '../../../core/theme/app_colors.dart';
 import '../dashboard/owner_dashboard_screen.dart' show dashboardStatsProvider;
 
 final customersProvider = FutureProvider<List<CustomerModel>>((ref) async {
@@ -276,78 +277,106 @@ class CustomerListScreen extends ConsumerWidget {
             return const Center(child: Text('No customers found.'));
           }
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: customers.length,
             itemBuilder: (context, index) {
               final customer = customers[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  child: Text(customer.name[0].toUpperCase()),
-                ),
-                title: Text(customer.name),
-                subtitle: Text(customer.phone),
-                trailing: PopupMenuButton<String>(
-                  onSelected: (value) async {
-                    if (value == 'create_login') {
-                      _showCreateCredentialsDialog(context, ref, customer);
-                    } else if (value == 'set_limit') {
-                      _showUpdateLimitDialog(context, ref, customer);
-                    } else if (value == 'deactivate') {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Deactivate Customer'),
-                          content: const Text(
-                            'Are you sure you want to deactivate this customer? They will no longer appear in the active lists.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text(
-                                'Deactivate',
-                                style: TextStyle(color: Colors.red),
+              return Card(
+                elevation: 1,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    foregroundColor: AppColors.primary,
+                    child: Text(customer.name[0].toUpperCase()),
+                  ),
+                  title: Text(
+                    customer.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(customer.phone),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: () {
+                          context.push(
+                            '/owner/customers/${customer.id}',
+                            extra: customer,
+                          );
+                        },
+                      ),
+                      PopupMenuButton<String>(
+                        onSelected: (value) async {
+                          if (value == 'create_login') {
+                            _showCreateCredentialsDialog(
+                              context,
+                              ref,
+                              customer,
+                            );
+                          } else if (value == 'set_limit') {
+                            _showUpdateLimitDialog(context, ref, customer);
+                          } else if (value == 'deactivate') {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Deactivate Customer'),
+                                content: const Text(
+                                  'Are you sure you want to deactivate this customer? They will no longer appear in the active lists.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text(
+                                      'Deactivate',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
                               ),
+                            );
+                            if (confirm == true) {
+                              await ref
+                                  .read(supabaseServiceProvider)
+                                  .deactivateCustomer(customer.id);
+                              ref.invalidate(customersProvider);
+                              ref.invalidate(dashboardStatsProvider);
+                            }
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          if (customer.authUserId == null)
+                            const PopupMenuItem(
+                              value: 'create_login',
+                              child: Text('Create Login'),
                             ),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        await ref
-                            .read(supabaseServiceProvider)
-                            .deactivateCustomer(customer.id);
-                        ref.invalidate(customersProvider);
-                        ref.invalidate(dashboardStatsProvider);
-                      }
-                    }
+                          const PopupMenuItem(
+                            value: 'set_limit',
+                            child: Text('Set Credit Limit'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'deactivate',
+                            child: Text(
+                              'Deactivate',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    context.push(
+                      '/owner/customers/${customer.id}',
+                      extra: customer,
+                    );
                   },
-                  itemBuilder: (context) => [
-                    if (customer.authUserId == null)
-                      const PopupMenuItem(
-                        value: 'create_login',
-                        child: Text('Create Login'),
-                      ),
-                    const PopupMenuItem(
-                      value: 'set_limit',
-                      child: Text('Set Credit Limit'),
-                    ),
-                    const PopupMenuItem(
-                      value: 'deactivate',
-                      child: Text(
-                        'Deactivate',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
                 ),
-                onTap: () {
-                  context.push(
-                    '/owner/customers/${customer.id}',
-                    extra: customer,
-                  );
-                },
               );
             },
           );

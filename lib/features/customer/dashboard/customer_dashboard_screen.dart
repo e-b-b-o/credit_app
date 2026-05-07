@@ -129,6 +129,42 @@ class CustomerDashboardScreen extends ConsumerWidget {
     );
   }
 
+  Widget _StatusBadge({required PaymentStatus status}) {
+    Color color;
+    switch (status) {
+      case PaymentStatus.paid:
+        color = Colors.greenAccent;
+        break;
+      case PaymentStatus.partial:
+        color = Colors.orangeAccent;
+        break;
+      case PaymentStatus.overdue:
+        color = Colors.redAccent;
+        break;
+      case PaymentStatus.pending:
+        color = Colors.white70;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        FinancialCalculator.getStatusText(status).toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.0,
+        ),
+      ),
+    );
+  }
+
   void _showNotificationsBottomSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
@@ -334,7 +370,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
                         child: Column(
                           children: [
                             Text(
-                              'My Balance',
+                              'My Outstanding Balance',
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: AppColors.white.withValues(
@@ -343,23 +379,16 @@ class CustomerDashboardScreen extends ConsumerWidget {
                                   ),
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              FinancialCalculator.formatCurrency(balance),
-                              style: Theme.of(context).textTheme.displayMedium
-                                  ?.copyWith(color: AppColors.white),
-                            ),
-                            const SizedBox(height: 8),
-                            Chip(
-                              label: Text(statusText),
-                              backgroundColor: statusColor.withValues(
-                                alpha: 0.2,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                FinancialCalculator.formatCurrency(balance),
+                                style: Theme.of(context).textTheme.displayMedium
+                                    ?.copyWith(color: AppColors.white),
                               ),
-                              labelStyle: TextStyle(
-                                color: statusColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              side: BorderSide(color: statusColor),
                             ),
+                            const SizedBox(height: 12),
+                            _StatusBadge(status: status),
                             if (profile.creditLimit > 0) ...[
                               const SizedBox(height: 16),
                               const Divider(color: Colors.white24),
@@ -377,7 +406,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
                                   ),
                                   _buildLimitInfo(
                                     context,
-                                    'Remaining',
+                                    'Available Credit',
                                     FinancialCalculator.formatCurrency(
                                       balances.remainingCredit,
                                     ),
@@ -390,9 +419,22 @@ class CustomerDashboardScreen extends ConsumerWidget {
                       ),
                     );
                   },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, st) => Center(child: Text('Error: $e')),
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (e, st) => Card(
+                    color: Colors.red.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Error: $e',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
                 );
               },
             ),

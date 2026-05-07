@@ -45,7 +45,7 @@ class ReportsScreen extends ConsumerWidget {
                     ),
                     _buildStatCard(
                       context,
-                      'Total Debt',
+                      'Debt Issued',
                       FinancialCalculator.formatCurrency(
                         stats['totalDebt'] as double,
                       ),
@@ -54,7 +54,7 @@ class ReportsScreen extends ConsumerWidget {
                     ),
                     _buildStatCard(
                       context,
-                      'Total Collected',
+                      'Repayments',
                       FinancialCalculator.formatCurrency(
                         stats['totalCollected'] as double,
                       ),
@@ -261,7 +261,7 @@ class ReportsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Collected ${FinancialCalculator.formatCurrency(totalCollected)} out of ${FinancialCalculator.formatCurrency(totalDebt)} total debt ever given.',
+              'Collected ${FinancialCalculator.formatCurrency(totalCollected)} out of ${FinancialCalculator.formatCurrency(totalDebt)} debt issued.',
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),
