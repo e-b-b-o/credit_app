@@ -62,15 +62,15 @@ class CustomerLedgerScreen extends ConsumerWidget {
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: type,
-                        isDense: true,
+                        isExpanded: true,
                         items: const [
                           DropdownMenuItem(
                             value: 'credit',
-                            child: Text('Credit (give goods)'),
+                            child: Text('Credit (Debt)'),
                           ),
                           DropdownMenuItem(
                             value: 'payment',
-                            child: Text('Payment (receive money)'),
+                            child: Text('Repayment'),
                           ),
                         ],
                         onChanged: (v) => setState(() => type = v!),
@@ -314,7 +314,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
           slivers: [
             // ── App Bar ────────────────────────────────────────────────────
             SliverAppBar(
-              expandedHeight: 180,
+              expandedHeight: 200,
               pinned: true,
               stretch: true,
               backgroundColor: AppColors.primary,
@@ -323,13 +323,25 @@ class CustomerLedgerScreen extends ConsumerWidget {
               centerTitle: true,
               flexibleSpace: FlexibleSpaceBar(
                 centerTitle: true,
-                title: Text(
-                  customer.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontSize: 18,
-                  ),
+                title: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Only show title text when the bar is collapsed (or nearly collapsed)
+                    final double opacity = (constraints.maxHeight < 100)
+                        ? 1.0
+                        : 0.0;
+                    return AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: opacity,
+                      child: Text(
+                        customer.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 18,
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 background: Container(
                   decoration: BoxDecoration(
@@ -346,7 +358,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 40),
                         Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -356,14 +368,14 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             ),
                           ),
                           child: CircleAvatar(
-                            radius: 30,
+                            radius: 32,
                             backgroundColor: Colors.white.withValues(
                               alpha: 0.2,
                             ),
                             child: Text(
                               customer.name[0].toUpperCase(),
                               style: const TextStyle(
-                                fontSize: 28,
+                                fontSize: 32,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -371,6 +383,15 @@ class CustomerLedgerScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
+                        Text(
+                          customer.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -389,9 +410,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(
-                          height: 40,
-                        ), // Space for title when expanded
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -445,18 +464,23 @@ class CustomerLedgerScreen extends ConsumerWidget {
                   }
 
                   return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // Status badge
                         Center(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: statusColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: statusColor.withValues(alpha: 0.5)),
+                              border: Border.all(
+                                color: statusColor.withValues(alpha: 0.5),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -464,7 +488,9 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                 Icon(statusIcon, color: statusColor, size: 16),
                                 const SizedBox(width: 8),
                                 Text(
-                                  FinancialCalculator.getStatusText(status).toUpperCase(),
+                                  FinancialCalculator.getStatusText(
+                                    status,
+                                  ).toUpperCase(),
                                   style: TextStyle(
                                     color: statusColor,
                                     fontWeight: FontWeight.bold,
@@ -476,14 +502,15 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         // Summary row
                         Card(
                           elevation: 2,
+                          margin: EdgeInsets.zero,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              vertical: 20,
-                              horizontal: 16,
+                              vertical: 24,
+                              horizontal: 12,
                             ),
                             child: Row(
                               children: [
@@ -521,6 +548,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                         if (customer.creditLimit > 0)
                           Card(
                             elevation: 0,
+                            margin: EdgeInsets.zero,
                             color: Colors.blueGrey.shade50,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -561,9 +589,14 @@ class CustomerLedgerScreen extends ConsumerWidget {
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
                                   backgroundColor: Colors.red.shade700,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
-                                icon: const Icon(Icons.add_shopping_cart, size: 20),
+                                icon: const Icon(
+                                  Icons.add_shopping_cart,
+                                  size: 20,
+                                ),
                                 label: const Text('Add Debt'),
                                 onPressed: () => _showTransactionDialog(
                                   context,
@@ -578,9 +611,14 @@ class CustomerLedgerScreen extends ConsumerWidget {
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
                                   backgroundColor: Colors.green.shade700,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
-                                icon: const Icon(Icons.account_balance_wallet, size: 20),
+                                icon: const Icon(
+                                  Icons.account_balance_wallet,
+                                  size: 20,
+                                ),
                                 label: const Text('Repayment'),
                                 onPressed: () => _showTransactionDialog(
                                   context,
@@ -592,10 +630,14 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
                         Row(
                           children: [
-                            const Icon(Icons.history, size: 20, color: AppColors.textLight),
+                            const Icon(
+                              Icons.history,
+                              size: 20,
+                              color: AppColors.textLight,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Debt History',
@@ -651,112 +693,212 @@ class CustomerLedgerScreen extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 4,
+                        vertical: 6,
                       ),
                       child: Card(
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: color.withValues(alpha: 0.12),
-                            child: Icon(
-                              isCredit
-                                  ? Icons.arrow_upward
-                                  : Icons.arrow_downward,
-                              color: color,
-                              size: 20,
-                            ),
-                          ),
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  tx.title?.isNotEmpty == true
-                                      ? tx.title!
-                                      : (isCredit ? 'Credit' : 'Payment'),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              if (isCredit)
-                                _StatusBadge(
-                                  status:
-                                      FinancialCalculator.calculateSingleTransactionStatus(
-                                        tx,
-                                        transactions,
+                        elevation: 1,
+                        child: InkWell(
+                          onTap: () {
+                            _showTransactionDialog(
+                              context,
+                              ref,
+                              existing: tx,
+                              transactions: transactions,
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Row 1: Title and Amount
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: color.withValues(
+                                        alpha: 0.1,
                                       ),
+                                      child: Icon(
+                                        isCredit
+                                            ? Icons.arrow_upward
+                                            : Icons.arrow_downward,
+                                        color: color,
+                                        size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            tx.title?.isNotEmpty == true
+                                                ? tx.title!
+                                                : (isCredit
+                                                      ? 'Credit'
+                                                      : 'Payment'),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          _StatusBadge(
+                                            status:
+                                                FinancialCalculator.calculateSingleTransactionStatus(
+                                                  tx,
+                                                  transactions,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            FinancialCalculator.formatCurrency(
+                                              tx.amount,
+                                            ),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: color,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ),
+                                        PopupMenuButton<String>(
+                                          icon: const Icon(
+                                            Icons.more_horiz,
+                                            size: 20,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onSelected: (val) {
+                                            if (val == 'edit') {
+                                              _showTransactionDialog(
+                                                context,
+                                                ref,
+                                                existing: tx,
+                                                transactions: transactions,
+                                              );
+                                            } else if (val == 'delete') {
+                                              _confirmDelete(context, ref, tx);
+                                            }
+                                          },
+                                          itemBuilder: (_) => const [
+                                            PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text(
+                                                'Delete',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                            ],
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (tx.note?.isNotEmpty == true)
-                                Text(
-                                  tx.note!,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              Text(
-                                _formatDate(tx.date),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                              if (tx.dueDate != null &&
-                                  tx.dueDate!.isBefore(DateTime.now()) &&
-                                  isCredit)
-                                const Text(
-                                  'OVERDUE',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          isThreeLine: tx.note?.isNotEmpty == true,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                FinancialCalculator.formatCurrency(tx.amount),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: color,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert, size: 18),
-                                onSelected: (val) {
-                                  if (val == 'edit') {
-                                    _showTransactionDialog(
-                                      context,
-                                      ref,
-                                      existing: tx,
-                                      transactions: transactions,
-                                    );
-                                  } else if (val == 'delete') {
-                                    _confirmDelete(context, ref, tx);
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                    value: 'edit',
-                                    child: Text('Edit'),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
+                                if (tx.note?.isNotEmpty == true) ...[
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Colors.grey.shade200,
+                                      ),
+                                    ),
                                     child: Text(
-                                      'Delete',
-                                      style: TextStyle(color: Colors.red),
+                                      tx.note!,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.blueGrey.shade700,
+                                        fontStyle: FontStyle.italic,
+                                      ),
                                     ),
                                   ),
                                 ],
-                              ),
-                            ],
+                                const SizedBox(height: 12),
+                                // Row 3: Date and Due Date
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.calendar_today,
+                                          size: 12,
+                                          color: Colors.grey,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _formatDate(tx.date),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (tx.dueDate != null && isCredit)
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.event_available,
+                                            size: 12,
+                                            color:
+                                                tx.dueDate!.isBefore(
+                                                  DateTime.now(),
+                                                )
+                                                ? Colors.red
+                                                : Colors.blueGrey,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Due: ${_formatDate(tx.dueDate!)}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight:
+                                                  tx.dueDate!.isBefore(
+                                                    DateTime.now(),
+                                                  )
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                              color:
+                                                  tx.dueDate!.isBefore(
+                                                    DateTime.now(),
+                                                  )
+                                                  ? Colors.red
+                                                  : Colors.blueGrey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -781,21 +923,26 @@ class CustomerLedgerScreen extends ConsumerWidget {
     required String value,
     Color color = Colors.blueGrey,
   }) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: color,
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
           ),
-        ),
-      ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -868,18 +1015,21 @@ class _SummaryCell extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: color,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: color,
+              ),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
           ),
         ],
       ),

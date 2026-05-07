@@ -86,62 +86,16 @@ class OwnerDashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Owner Dashboard'),
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'logout') {
-                ref.read(authControllerProvider.notifier).signOut();
-              } else if (value == 'delete_account') {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Delete Account'),
-                    content: const Text(
-                      'Are you sure you want to permanently delete your account and all associated data?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text(
-                          'Delete',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  try {
-                    await ref
-                        .read(supabaseServiceProvider)
-                        .deleteOwnerAccount();
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              }
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              ref.read(authControllerProvider.notifier).signOut();
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'logout', child: Text('Logout')),
-              const PopupMenuItem(
-                value: 'delete_account',
-                child: Text(
-                  'Delete Account',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -159,6 +113,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                           stats['totalOutstanding'] as double,
                         ),
                         AppColors.primary,
+                        fullWidth: true,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -172,6 +127,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                               ),
                               Colors.blueGrey.shade800,
                               isMini: true,
+                              fullWidth: true,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -184,6 +140,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                               ),
                               Colors.green.shade800,
                               isMini: true,
+                              fullWidth: true,
                             ),
                           ),
                         ],
@@ -285,7 +242,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
               'Quick Actions',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -296,7 +253,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                     onTap: () => context.push('/owner/customers'),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _buildActionCard(
                     context,
@@ -307,7 +264,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -318,7 +275,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                     onTap: () => context.push('/owner/reports'),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _buildActionCard(
                     context,
@@ -329,7 +286,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             // Recent Activity
             Consumer(
               builder: (context, ref, child) {
@@ -415,9 +372,13 @@ class OwnerDashboardScreen extends ConsumerWidget {
     String value,
     Color color, {
     bool isMini = false,
+    bool fullWidth = false,
   }) {
     return Card(
       color: color,
+      margin: fullWidth
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
         padding: EdgeInsets.all(isMini ? 16.0 : 24.0),
         child: Column(
@@ -425,22 +386,25 @@ class OwnerDashboardScreen extends ConsumerWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.white.withValues(alpha: 0.8),
-              ),
+                    color: AppColors.white.withValues(alpha: 0.8),
+                  ),
             ),
             const SizedBox(height: 4),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style:
-                    (isMini
-                            ? Theme.of(context).textTheme.headlineSmall
-                            : Theme.of(context).textTheme.displayMedium)
-                        ?.copyWith(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+            SizedBox(
+              width: double.infinity,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: Text(
+                  value,
+                  style: (isMini
+                          ? Theme.of(context).textTheme.titleLarge
+                          : Theme.of(context).textTheme.headlineMedium)
+                      ?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -480,20 +444,25 @@ class OwnerDashboardScreen extends ConsumerWidget {
   }) {
     return Card(
       elevation: 2,
+      margin: EdgeInsets.zero,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           child: Column(
             children: [
-              Icon(icon, size: 40, color: AppColors.primary),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+              Icon(icon, size: 32, color: AppColors.primary),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ],
           ),

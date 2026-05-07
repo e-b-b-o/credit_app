@@ -332,7 +332,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -353,18 +353,10 @@ class CustomerDashboardScreen extends ConsumerWidget {
 
                     final balance = balances.outstandingBalance;
                     final status = data['status'] as PaymentStatus;
-                    final statusText = FinancialCalculator.getStatusText(
-                      status,
-                    );
-
-                    Color statusColor = Colors.white;
-                    if (status == PaymentStatus.overdue)
-                      statusColor = Colors.redAccent;
-                    if (status == PaymentStatus.paid)
-                      statusColor = Colors.greenAccent;
 
                     return Card(
                       color: AppColors.primary,
+                      margin: EdgeInsets.zero,
                       child: Padding(
                         padding: const EdgeInsets.all(24.0),
                         child: Column(
@@ -379,12 +371,18 @@ class CustomerDashboardScreen extends ConsumerWidget {
                                   ),
                             ),
                             const SizedBox(height: 8),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                FinancialCalculator.formatCurrency(balance),
-                                style: Theme.of(context).textTheme.displayMedium
-                                    ?.copyWith(color: AppColors.white),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  FinancialCalculator.formatCurrency(balance),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(color: AppColors.white),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),

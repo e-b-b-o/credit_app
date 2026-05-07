@@ -18,7 +18,10 @@ class ReportsScreen extends ConsumerWidget {
           final aging = stats['agingAnalysis'] as List<AgingCategory>;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 20.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -31,10 +34,11 @@ class ReportsScreen extends ConsumerWidget {
                 GridView.count(
                   crossAxisCount: 2,
                   shrinkWrap: true,
+                  padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 1.5,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 1.4,
                   children: [
                     _buildStatCard(
                       context,
@@ -83,22 +87,39 @@ class ReportsScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Card(
                   color: Colors.red.shade50,
+                  margin: EdgeInsets.zero,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.red.shade100),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 20.0,
+                      horizontal: 16.0,
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildSimpleStat(
-                          'Overdue Customers',
-                          stats['overdueCustomersCount'].toString(),
-                          Colors.red.shade900,
-                        ),
-                        _buildSimpleStat(
-                          'Overdue Amount',
-                          FinancialCalculator.formatCurrency(
-                            stats['overdueBalance'] as double,
+                        Expanded(
+                          child: _buildSimpleStat(
+                            'Overdue Customers',
+                            stats['overdueCustomersCount'].toString(),
+                            Colors.red.shade900,
                           ),
-                          Colors.red.shade900,
+                        ),
+                        Container(
+                          width: 1,
+                          height: 40,
+                          color: Colors.red.shade100,
+                        ),
+                        Expanded(
+                          child: _buildSimpleStat(
+                            'Overdue Amount',
+                            FinancialCalculator.formatCurrency(
+                              stats['overdueBalance'] as double,
+                            ),
+                            Colors.red.shade900,
+                          ),
                         ),
                       ],
                     ),
@@ -148,27 +169,31 @@ class ReportsScreen extends ConsumerWidget {
     Color color,
   ) {
     return Card(
-      elevation: 2,
+      elevation: 1,
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(8.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 value,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -205,22 +230,35 @@ class ReportsScreen extends ConsumerWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           width: 4,
-          height: 40,
-          color: isCurrent ? Colors.green : Colors.red,
+          height: 32,
+          decoration: BoxDecoration(
+            color: isCurrent ? Colors.green : Colors.red,
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
         title: Text(
           category.label,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
-        subtitle: Text('${category.customerCount} Customers'),
+        subtitle: Text(
+          '${category.customerCount} Customers',
+          style: const TextStyle(fontSize: 12),
+        ),
         trailing: Text(
           FinancialCalculator.formatCurrency(category.totalBalance),
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: isCurrent ? Colors.green : Colors.red,
+            fontSize: 14,
           ),
         ),
       ),
