@@ -29,12 +29,14 @@ class CustomerLedgerScreen extends ConsumerWidget {
     WidgetRef ref, {
     String defaultType = 'credit',
     TransactionModel? existing,
+    List<TransactionModel> transactions = const [],
   }) {
     final titleController = TextEditingController(text: existing?.title ?? '');
     final amountController = TextEditingController(
       text: existing != null ? existing.amount.toStringAsFixed(2) : '',
     );
     final noteController = TextEditingController(text: existing?.note ?? '');
+    DateTime? selectedDueDate = existing?.dueDate;
     String type = existing?.type ?? defaultType;
     bool isLoading = false;
 
@@ -95,6 +97,38 @@ class CustomerLedgerScreen extends ConsumerWidget {
                     decimal: true,
                   ),
                 ),
+                if (type == 'credit') ...[
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            selectedDueDate ??
+                            DateTime.now().add(const Duration(days: 30)),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(
+                          const Duration(days: 365 * 5),
+                        ),
+                      );
+                      if (picked != null) {
+                        setState(() => selectedDueDate = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Due Date',
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.calendar_today),
+                      ),
+                      child: Text(
+                        selectedDueDate == null
+                            ? 'No due date set'
+                            : '${selectedDueDate!.day}/${selectedDueDate!.month}/${selectedDueDate!.year}',
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 TextField(
                   controller: noteController,
@@ -118,6 +152,41 @@ class CustomerLedgerScreen extends ConsumerWidget {
                   : () async {
                       final amount = double.tryParse(amountController.text);
                       if (amount == null || amount <= 0) return;
+
+                      if (existing == null && type == 'credit') {
+                        final currentBalance =
+                            FinancialCalculator.calculateRemainingBalance(
+                              transactions,
+                            );
+                        final newBalance = currentBalance + amount;
+
+                        if (newBalance > customer.creditLimit &&
+                            customer.creditLimit > 0) {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Credit Limit Exceeded'),
+                              content: Text(
+                                'Adding this credit will bring the balance to ${FinancialCalculator.formatCurrency(newBalance)}, '
+                                'which exceeds the customer\'s limit of ${FinancialCalculator.formatCurrency(customer.creditLimit)}. '
+                                'Do you want to proceed anyway?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Proceed'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm != true) return;
+                        }
+                      }
+
                       setState(() => isLoading = true);
                       try {
                         if (existing == null) {
@@ -133,6 +202,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                 note: noteController.text.trim().isEmpty
                                     ? null
                                     : noteController.text.trim(),
+                                dueDate: selectedDueDate,
                               );
                         } else {
                           await ref
@@ -146,6 +216,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                 note: noteController.text.trim().isEmpty
                                     ? null
                                     : noteController.text.trim(),
+                                dueDate: selectedDueDate,
                               );
                         }
                         // Invalidate all providers that depend on transactions
@@ -340,18 +411,18 @@ class CustomerLedgerScreen extends ConsumerWidget {
                   child: Center(child: Text('Error loading ledger: $e')),
                 ),
                 data: (transactions) {
-                  final totalCredit = FinancialCalculator.calculateTotalCredits(
+                  final balances = FinancialCalculator.calculateCustomerBalance(
                     transactions,
-                  );
-                  final totalPaid = FinancialCalculator.calculateTotalPayments(
-                    transactions,
-                  );
-                  final balance = FinancialCalculator.calculateRemainingBalance(
-                    transactions,
+                    customer.creditLimit,
                   );
                   final status = FinancialCalculator.calculatePaymentStatus(
                     transactions,
                   );
+
+                  final totalCredit = balances.totalDebt;
+                  final totalPaid = balances.totalPaid;
+                  final balance = balances.outstandingBalance;
+                  final remainingCredit = balances.remainingCredit;
 
                   Color statusColor;
                   IconData statusIcon;
@@ -397,6 +468,38 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             side: BorderSide(color: statusColor),
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        // Credit Limit Info
+                        if (customer.creditLimit > 0)
+                          Card(
+                            color: Colors.blueGrey.shade50,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  _SummarySmall(
+                                    label: 'Limit',
+                                    value: FinancialCalculator.formatCurrency(
+                                      customer.creditLimit,
+                                    ),
+                                  ),
+                                  _SummarySmall(
+                                    label: 'Available',
+                                    value: FinancialCalculator.formatCurrency(
+                                      remainingCredit,
+                                    ),
+                                    color:
+                                        remainingCredit <
+                                            (customer.creditLimit * 0.1)
+                                        ? Colors.red
+                                        : Colors.blueGrey,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 12),
                         // Summary row
                         Card(
@@ -451,6 +554,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                   context,
                                   ref,
                                   defaultType: 'credit',
+                                  transactions: transactions,
                                 ),
                               ),
                             ),
@@ -466,6 +570,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                   context,
                                   ref,
                                   defaultType: 'payment',
+                                  transactions: transactions,
                                 ),
                               ),
                             ),
@@ -538,11 +643,27 @@ class CustomerLedgerScreen extends ConsumerWidget {
                               size: 20,
                             ),
                           ),
-                          title: Text(
-                            tx.title?.isNotEmpty == true
-                                ? tx.title!
-                                : (isCredit ? 'Credit' : 'Payment'),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  tx.title?.isNotEmpty == true
+                                      ? tx.title!
+                                      : (isCredit ? 'Credit' : 'Payment'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (isCredit)
+                                _StatusBadge(
+                                  status:
+                                      FinancialCalculator.calculateSingleTransactionStatus(
+                                        tx,
+                                        transactions,
+                                      ),
+                                ),
+                            ],
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,6 +714,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                       context,
                                       ref,
                                       existing: tx,
+                                      transactions: transactions,
                                     );
                                   } else if (val == 'delete') {
                                     _confirmDelete(context, ref, tx);
@@ -631,6 +753,64 @@ class CustomerLedgerScreen extends ConsumerWidget {
 
   Widget _divider() =>
       Container(width: 1, height: 40, color: Colors.grey.shade200);
+
+  Widget _SummarySmall({
+    required String label,
+    required String value,
+    Color color = Colors.blueGrey,
+  }) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _StatusBadge({required PaymentStatus status}) {
+    Color color;
+    switch (status) {
+      case PaymentStatus.paid:
+        color = Colors.green;
+        break;
+      case PaymentStatus.partial:
+        color = Colors.orange;
+        break;
+      case PaymentStatus.overdue:
+        color = Colors.red;
+        break;
+      case PaymentStatus.pending:
+        color = Colors.grey;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 0.5),
+      ),
+      child: Text(
+        FinancialCalculator.getStatusText(status).toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
 
   String _formatDate(DateTime dt) {
     final months = [

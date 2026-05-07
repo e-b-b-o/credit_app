@@ -8,6 +8,7 @@ create table if not exists public.customers (
     phone text not null,
     owner_id uuid references auth.users(id) on delete cascade not null,
     auth_user_id uuid references auth.users(id) on delete set null,
+    credit_limit numeric default 0 not null check (credit_limit >= 0),
     is_active boolean default true not null,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     unique(owner_id, phone) -- An owner cannot have duplicate phone numbers for customers
@@ -17,6 +18,7 @@ create table if not exists public.customers (
 create table if not exists public.transactions (
     id uuid default uuid_generate_v4() primary key,
     customer_id uuid references public.customers(id) on delete cascade not null,
+    owner_id uuid references auth.users(id) on delete cascade not null,
     amount numeric not null check (amount > 0),
     type text not null check (type in ('credit', 'payment')),
     title text,

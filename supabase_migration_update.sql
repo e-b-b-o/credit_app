@@ -1,7 +1,19 @@
 -- 1. ADD MISSING COLUMNS
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS is_active boolean default true not null;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS credit_limit numeric default 0 not null check (credit_limit >= 0);
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS owner_id uuid references auth.users(id) on delete cascade;
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS due_date timestamp with time zone;
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS title text;
+
+-- Backfill owner_id for transactions if it's missing (link via customer)
+UPDATE public.transactions t
+SET owner_id = c.owner_id
+FROM public.customers c
+WHERE t.customer_id = c.id AND t.owner_id IS NULL;
+
+-- Make owner_id NOT NULL after backfill
+-- ALTER TABLE public.transactions ALTER COLUMN owner_id SET NOT NULL; 
+-- (Commented out above in case some transactions are orphaned, but recommended)
 
 -- 2. CREATE COMPLAINTS TABLE
 create table if not exists public.complaints (

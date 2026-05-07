@@ -4,6 +4,7 @@ class CustomerModel {
   final String phone;
   final String ownerId;
   final String? authUserId;
+  final double creditLimit;
   final bool isActive;
   final DateTime createdAt;
 
@@ -13,6 +14,7 @@ class CustomerModel {
     required this.phone,
     required this.ownerId,
     this.authUserId,
+    this.creditLimit = 0.0,
     this.isActive = true,
     required this.createdAt,
   });
@@ -24,6 +26,7 @@ class CustomerModel {
       phone: json['phone'],
       ownerId: json['owner_id'],
       authUserId: json['auth_user_id'],
+      creditLimit: (json['credit_limit'] as num?)?.toDouble() ?? 0.0,
       isActive: json['is_active'] ?? true,
       createdAt: DateTime.parse(json['created_at']),
     );
@@ -36,6 +39,7 @@ class CustomerModel {
       'phone': phone,
       'owner_id': ownerId,
       'auth_user_id': authUserId,
+      'credit_limit': creditLimit,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
     };

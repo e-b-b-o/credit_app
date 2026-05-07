@@ -1,6 +1,7 @@
 class TransactionModel {
   final String id;
   final String customerId;
+  final String ownerId;
   final double amount;
   final String type; // 'credit' or 'payment'
   final String? title;
@@ -12,6 +13,7 @@ class TransactionModel {
   TransactionModel({
     required this.id,
     required this.customerId,
+    required this.ownerId,
     required this.amount,
     required this.type,
     this.title,
@@ -25,6 +27,7 @@ class TransactionModel {
     return TransactionModel(
       id: json['id'],
       customerId: json['customer_id'],
+      ownerId: json['owner_id'] ?? '',
       amount: (json['amount'] as num).toDouble(),
       type: json['type'],
       title: json['title'],
@@ -39,6 +42,7 @@ class TransactionModel {
     return {
       'id': id,
       'customer_id': customerId,
+      'owner_id': ownerId,
       'amount': amount,
       'type': type,
       'title': title,

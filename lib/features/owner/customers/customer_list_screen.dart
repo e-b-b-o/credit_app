@@ -98,6 +98,7 @@ class CustomerListScreen extends ConsumerWidget {
   void _showAddCustomerDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
+    final creditLimitController = TextEditingController(text: '0');
     bool isLoading = false;
 
     showDialog(
@@ -106,20 +107,33 @@ class CustomerListScreen extends ConsumerWidget {
         builder: (context, setState) {
           return AlertDialog(
             title: const Text('Add Customer'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: phoneController,
-                  decoration: const InputDecoration(labelText: 'Phone'),
-                  keyboardType: TextInputType.phone,
-                ),
-              ],
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Name'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: phoneController,
+                    decoration: const InputDecoration(labelText: 'Phone'),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: creditLimitController,
+                    decoration: const InputDecoration(
+                      labelText: 'Credit Limit (ETB)',
+                      hintText: 'e.g. 5000',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -133,6 +147,9 @@ class CustomerListScreen extends ConsumerWidget {
                         if (nameController.text.trim().isEmpty ||
                             phoneController.text.trim().isEmpty)
                           return;
+                        final creditLimit =
+                            double.tryParse(creditLimitController.text) ?? 0.0;
+
                         setState(() => isLoading = true);
                         try {
                           final customer = await ref
@@ -140,6 +157,7 @@ class CustomerListScreen extends ConsumerWidget {
                               .addCustomer(
                                 nameController.text.trim(),
                                 phoneController.text.trim(),
+                                creditLimit: creditLimit,
                               );
                           if (!context.mounted) return;
                           Navigator.pop(ctx);
@@ -176,6 +194,76 @@ class CustomerListScreen extends ConsumerWidget {
     );
   }
 
+  void _showUpdateLimitDialog(
+    BuildContext context,
+    WidgetRef ref,
+    CustomerModel customer,
+  ) {
+    final limitController = TextEditingController(
+      text: customer.creditLimit.toString(),
+    );
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Update Credit Limit'),
+            content: TextField(
+              controller: limitController,
+              decoration: const InputDecoration(
+                labelText: 'Credit Limit (ETB)',
+                hintText: 'e.g. 5000',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        final limit = double.tryParse(limitController.text);
+                        if (limit == null || limit < 0) return;
+
+                        setState(() => isLoading = true);
+                        try {
+                          await ref
+                              .read(supabaseServiceProvider)
+                              .updateCustomerCreditLimit(customer.id, limit);
+                          if (!context.mounted) return;
+                          Navigator.pop(ctx);
+                          ref.invalidate(customersProvider);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Credit limit updated'),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          setState(() => isLoading = false);
+                        }
+                      },
+                child: isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Update'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final customersAsync = ref.watch(customersProvider);
@@ -201,6 +289,8 @@ class CustomerListScreen extends ConsumerWidget {
                   onSelected: (value) async {
                     if (value == 'create_login') {
                       _showCreateCredentialsDialog(context, ref, customer);
+                    } else if (value == 'set_limit') {
+                      _showUpdateLimitDialog(context, ref, customer);
                     } else if (value == 'deactivate') {
                       final confirm = await showDialog<bool>(
                         context: context,
@@ -239,6 +329,10 @@ class CustomerListScreen extends ConsumerWidget {
                         value: 'create_login',
                         child: Text('Create Login'),
                       ),
+                    const PopupMenuItem(
+                      value: 'set_limit',
+                      child: Text('Set Credit Limit'),
+                    ),
                     const PopupMenuItem(
                       value: 'deactivate',
                       child: Text(

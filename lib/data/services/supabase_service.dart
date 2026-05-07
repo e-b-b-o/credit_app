@@ -78,13 +78,40 @@ class SupabaseService {
     return CustomerModel.fromJson(response);
   }
 
-  Future<CustomerModel> addCustomer(String name, String phone) async {
+  Future<CustomerModel> addCustomer(
+    String name,
+    String phone, {
+    double creditLimit = 0.0,
+  }) async {
     final ownerId = currentUser?.id;
     if (ownerId == null) throw Exception('Not logged in');
 
     final response = await _client
         .from('customers')
-        .insert({'name': name, 'phone': phone, 'owner_id': ownerId})
+        .insert({
+          'name': name,
+          'phone': phone,
+          'owner_id': ownerId,
+          'credit_limit': creditLimit,
+        })
+        .select()
+        .single();
+
+    return CustomerModel.fromJson(response);
+  }
+
+  Future<CustomerModel> updateCustomerCreditLimit(
+    String customerId,
+    double limit,
+  ) async {
+    final ownerId = currentUser?.id;
+    if (ownerId == null) throw Exception('Not logged in');
+
+    final response = await _client
+        .from('customers')
+        .update({'credit_limit': limit})
+        .eq('id', customerId)
+        .eq('owner_id', ownerId)
         .select()
         .single();
 
@@ -198,10 +225,14 @@ class SupabaseService {
     String? note,
     DateTime? dueDate,
   }) async {
+    final ownerId = currentUser?.id;
+    if (ownerId == null) throw Exception('Not logged in');
+
     final response = await _client
         .from('transactions')
         .insert({
           'customer_id': customerId,
+          'owner_id': ownerId,
           'amount': amount,
           'type': type,
           'title': title,
