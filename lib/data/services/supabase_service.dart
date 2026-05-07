@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/customer_model.dart';
 import '../models/transaction_model.dart';
 import '../models/complaint_model.dart';
+import '../models/notification_model.dart';
 import '../../core/constants/env_constants.dart';
 
 final supabaseProvider = Provider<SupabaseClient>((ref) {
@@ -315,5 +316,45 @@ class SupabaseService {
         .update({'status': status})
         .eq('id', complaintId)
         .eq('owner_id', ownerId);
+  }
+
+  // Notifications
+  Future<List<NotificationModel>> getNotifications() async {
+    final uid = currentUser?.id;
+    if (uid == null) return [];
+
+    // We rely on RLS policies to filter notifications automatically
+    // Owners will only see notifications where owner_id = uid
+    // Customers will only see notifications where customer_id matches their profile
+    final response = await _client
+        .from('notifications')
+        .select()
+        .order('created_at', ascending: false);
+
+    return (response as List)
+        .map((json) => NotificationModel.fromJson(json))
+        .toList();
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    await _client.from('notifications').update({'is_read': true}).eq('id', id);
+  }
+
+  Future<void> sendNotification({
+    required String customerId,
+    required String ownerId,
+    required String title,
+    required String message,
+    required String type,
+    String? transactionId,
+  }) async {
+    await _client.from('notifications').insert({
+      'customer_id': customerId,
+      'owner_id': ownerId,
+      'title': title,
+      'message': message,
+      'type': type,
+      'transaction_id': transactionId,
+    });
   }
 }

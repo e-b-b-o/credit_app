@@ -13,12 +13,18 @@ import '../features/owner/reports/reports_screen.dart';
 import '../features/owner/complaints/complaints_screen.dart';
 import '../features/customer/dashboard/customer_dashboard_screen.dart';
 import '../features/customer/history/customer_history_screen.dart';
+import '../core/services/reminder_service.dart';
 
 class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
-    _ref.listen(authControllerProvider, (_, __) => notifyListeners());
+    _ref.listen(authControllerProvider, (prev, next) {
+      if (next.value != null) {
+        _ref.read(reminderServiceProvider).checkAndGenerateReminders();
+      }
+      notifyListeners();
+    });
   }
 
   String? redirect(BuildContext context, GoRouterState state) {

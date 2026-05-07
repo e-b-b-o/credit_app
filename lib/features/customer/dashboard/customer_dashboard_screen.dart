@@ -7,6 +7,13 @@ import '../../../data/services/supabase_service.dart';
 import '../../../shared/utils/financial_calculator.dart';
 import '../../../data/models/customer_model.dart';
 import '../../../data/models/transaction_model.dart';
+import '../../../data/models/notification_model.dart';
+
+final notificationsProvider = FutureProvider<List<NotificationModel>>((
+  ref,
+) async {
+  return ref.watch(supabaseServiceProvider).getNotifications();
+});
 
 final customerDashboardProvider = FutureProvider((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
@@ -122,12 +129,164 @@ class CustomerDashboardScreen extends ConsumerWidget {
     );
   }
 
+  void _showNotificationsBottomSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Reminders & Notifications',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final notificationsAsync = ref.watch(notificationsProvider);
+                  return notificationsAsync.when(
+                    data: (notifications) {
+                      if (notifications.isEmpty) {
+                        return const Center(
+                          child: Text('No notifications yet.'),
+                        );
+                      }
+                      return ListView.builder(
+                        controller: scrollController,
+                        itemCount: notifications.length,
+                        itemBuilder: (context, index) {
+                          final notification = notifications[index];
+                          final isUnread = !notification.isRead;
+
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: notification.type == 'alert'
+                                  ? Colors.red.shade100
+                                  : Colors.blue.shade100,
+                              child: Icon(
+                                notification.type == 'alert'
+                                    ? Icons.warning
+                                    : Icons.notifications,
+                                color: notification.type == 'alert'
+                                    ? Colors.red
+                                    : Colors.blue,
+                              ),
+                            ),
+                            title: Text(
+                              notification.title,
+                              style: TextStyle(
+                                fontWeight: isUnread
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(notification.message),
+                                Text(
+                                  '${notification.createdAt.day}/${notification.createdAt.month}/${notification.createdAt.year}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            onTap: () {
+                              if (isUnread) {
+                                ref
+                                    .read(supabaseServiceProvider)
+                                    .markNotificationAsRead(notification.id);
+                                ref.invalidate(notificationsProvider);
+                              }
+                            },
+                            tileColor: isUnread
+                                ? Colors.blue.withValues(alpha: 0.05)
+                                : null,
+                          );
+                        },
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('Error: $e')),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Dashboard'),
         actions: [
+          Consumer(
+            builder: (context, ref, child) {
+              final notificationsAsync = ref.watch(notificationsProvider);
+              final unreadCount =
+                  notificationsAsync.value?.where((n) => !n.isRead).length ?? 0;
+
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () =>
+                        _showNotificationsBottomSheet(context, ref),
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {

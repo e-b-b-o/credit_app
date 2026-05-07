@@ -38,11 +38,25 @@ create table if not exists public.complaints (
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- NOTIFICATIONS TABLE
+create table if not exists public.notifications (
+    id uuid default uuid_generate_v4() primary key,
+    customer_id uuid references public.customers(id) on delete cascade not null,
+    owner_id uuid references auth.users(id) on delete cascade not null,
+    title text not null,
+    message text not null,
+    type text not null check (type in ('reminder', 'alert', 'info')),
+    is_read boolean default false not null,
+    transaction_id uuid references public.transactions(id) on delete set null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 -- ROW LEVEL SECURITY (RLS)
 
 -- Enable RLS
 alter table public.customers enable row level security;
 alter table public.transactions enable row level security;
+alter table public.notifications enable row level security;
 
 -- Customers Policies:
 -- 1. Owners can read their own customers
@@ -158,6 +172,39 @@ with check (
     exists (
         select 1 from public.customers 
         where customers.id = complaints.customer_id 
+        and customers.auth_user_id = auth.uid()
+    )
+);
+
+-- Notifications Policies:
+-- 1. Owners can read notifications they sent
+create policy "Owners can read their notifications"
+on public.notifications for select
+using (auth.uid() = owner_id);
+
+-- 2. Owners can insert notifications
+create policy "Owners can insert notifications"
+on public.notifications for insert
+with check (auth.uid() = owner_id);
+
+-- 3. Customers can read their own notifications
+create policy "Customers can read their own notifications"
+on public.notifications for select
+using (
+    exists (
+        select 1 from public.customers 
+        where customers.id = notifications.customer_id 
+        and customers.auth_user_id = auth.uid()
+    )
+);
+
+-- 4. Customers can update their own notifications (mark as read)
+create policy "Customers can update their own notifications"
+on public.notifications for update
+using (
+    exists (
+        select 1 from public.customers 
+        where customers.id = notifications.customer_id 
         and customers.auth_user_id = auth.uid()
     )
 );

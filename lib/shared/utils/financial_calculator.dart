@@ -18,6 +18,20 @@ class TransactionBalance {
   });
 }
 
+class AgingCategory {
+  final String label;
+  int customerCount;
+  double totalBalance;
+  final List<String> customerIds;
+
+  AgingCategory({
+    required this.label,
+    this.customerCount = 0,
+    this.totalBalance = 0,
+    required this.customerIds,
+  });
+}
+
 class FinancialCalculator {
   static String formatCurrency(double amount) {
     // Ethiopian currency formatting
@@ -118,18 +132,26 @@ class FinancialCalculator {
     if (tx.type == 'payment') return PaymentStatus.paid;
 
     final totalPayments = calculateTotalPayments(allTransactions);
-    final creditsBeforeAndThis =
-        allTransactions.where((t) => t.type == 'credit').toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
+
+    // Get all credits sorted by date to apply payments in FIFO order
+    final allCredits = allTransactions.where((t) => t.type == 'credit').toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
 
     double paymentsLeft = totalPayments;
-    for (var credit in creditsBeforeAndThis) {
+    for (var credit in allCredits) {
       if (credit.id == tx.id) {
-        if (paymentsLeft >= credit.amount) return PaymentStatus.paid;
-        if (paymentsLeft > 0) return PaymentStatus.partial;
-        if (tx.dueDate != null && tx.dueDate!.isBefore(DateTime.now()))
-          return PaymentStatus.overdue;
-        return PaymentStatus.pending;
+        final isFullyPaid = paymentsLeft >= credit.amount;
+        final isPartiallyPaid =
+            paymentsLeft > 0 && paymentsLeft < credit.amount;
+
+        if (isFullyPaid) return PaymentStatus.paid;
+
+        // Check for overdue if not fully paid
+        final isOverdue =
+            tx.dueDate != null && tx.dueDate!.isBefore(DateTime.now());
+        if (isOverdue) return PaymentStatus.overdue;
+
+        return isPartiallyPaid ? PaymentStatus.partial : PaymentStatus.pending;
       }
       paymentsLeft = (paymentsLeft - credit.amount).clamp(0.0, double.infinity);
     }
@@ -147,5 +169,90 @@ class FinancialCalculator {
       case PaymentStatus.overdue:
         return 'Overdue';
     }
+  }
+
+  static List<AgingCategory> calculateAgingAnalysis(
+    List<TransactionModel> allTransactions,
+    List<String> allCustomerIds,
+  ) {
+    final now = DateTime.now();
+    final categories = [
+      AgingCategory(
+        label: 'Current',
+        customerCount: 0,
+        totalBalance: 0,
+        customerIds: [],
+      ),
+      AgingCategory(
+        label: '1–7 Days',
+        customerCount: 0,
+        totalBalance: 0,
+        customerIds: [],
+      ),
+      AgingCategory(
+        label: '8–30 Days',
+        customerCount: 0,
+        totalBalance: 0,
+        customerIds: [],
+      ),
+      AgingCategory(
+        label: '30+ Days',
+        customerCount: 0,
+        totalBalance: 0,
+        customerIds: [],
+      ),
+    ];
+
+    for (var customerId in allCustomerIds) {
+      final customerTxs = allTransactions
+          .where((t) => t.customerId == customerId)
+          .toList();
+      final balance = calculateRemainingBalance(customerTxs);
+      if (balance <= 0) continue;
+
+      // Find the oldest unpaid credit for this customer
+      final unpaidCredits =
+          customerTxs.where((t) => t.type == 'credit').toList()
+            ..sort((a, b) => a.date.compareTo(b.date));
+
+      double paymentsLeft = calculateTotalPayments(customerTxs);
+      TransactionModel? oldestUnpaid;
+
+      for (var credit in unpaidCredits) {
+        if (paymentsLeft >= credit.amount) {
+          paymentsLeft -= credit.amount;
+        } else {
+          oldestUnpaid = credit;
+          break;
+        }
+      }
+
+      if (oldestUnpaid == null) continue; // Should not happen if balance > 0
+
+      final dueDate = oldestUnpaid.dueDate ?? oldestUnpaid.date;
+      if (dueDate.isAfter(now)) {
+        // Current
+        categories[0].customerIds.add(customerId);
+        categories[0].customerCount++;
+        categories[0].totalBalance += balance;
+      } else {
+        final daysOverdue = now.difference(dueDate).inDays;
+        if (daysOverdue <= 7) {
+          categories[1].customerIds.add(customerId);
+          categories[1].customerCount++;
+          categories[1].totalBalance += balance;
+        } else if (daysOverdue <= 30) {
+          categories[2].customerIds.add(customerId);
+          categories[2].customerCount++;
+          categories[2].totalBalance += balance;
+        } else {
+          categories[3].customerIds.add(customerId);
+          categories[3].customerCount++;
+          categories[3].totalBalance += balance;
+        }
+      }
+    }
+
+    return categories;
   }
 }

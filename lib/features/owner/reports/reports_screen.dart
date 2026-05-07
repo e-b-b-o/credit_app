@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../dashboard/owner_dashboard_screen.dart';
 import '../../../shared/utils/financial_calculator.dart';
+import '../../../data/models/customer_model.dart';
 
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
@@ -11,38 +12,123 @@ class ReportsScreen extends ConsumerWidget {
     final statsAsync = ref.watch(dashboardStatsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reports')),
+      appBar: AppBar(title: const Text('Reports & Analytics')),
       body: statsAsync.when(
         data: (stats) {
-          return Padding(
+          final aging = stats['agingAnalysis'] as List<AgingCategory>;
+
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.people),
-                    title: const Text('Total Active Customers'),
-                    trailing: Text(
-                      stats['customersCount'].toString(),
-                      style: const TextStyle(fontSize: 20),
-                    ),
-                  ),
+                // 1. Business Overview
+                Text(
+                  'Business Overview',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.account_balance_wallet),
-                    title: const Text('Total Outstanding'),
-                    trailing: Text(
+                const SizedBox(height: 12),
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.5,
+                  children: [
+                    _buildStatCard(
+                      context,
+                      'Total Customers',
+                      stats['customersCount'].toString(),
+                      Icons.people,
+                      Colors.blue,
+                    ),
+                    _buildStatCard(
+                      context,
+                      'Total Debt',
+                      FinancialCalculator.formatCurrency(
+                        stats['totalDebt'] as double,
+                      ),
+                      Icons.trending_up,
+                      Colors.red,
+                    ),
+                    _buildStatCard(
+                      context,
+                      'Total Collected',
+                      FinancialCalculator.formatCurrency(
+                        stats['totalCollected'] as double,
+                      ),
+                      Icons.payments,
+                      Colors.green,
+                    ),
+                    _buildStatCard(
+                      context,
+                      'Outstanding',
                       FinancialCalculator.formatCurrency(
                         stats['totalOutstanding'] as double,
                       ),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      Icons.account_balance_wallet,
+                      Colors.orange,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // 2. Overdue Status
+                Text(
+                  'Overdue Status',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  color: Colors.red.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildSimpleStat(
+                          'Overdue Customers',
+                          stats['overdueCustomersCount'].toString(),
+                          Colors.red.shade900,
+                        ),
+                        _buildSimpleStat(
+                          'Overdue Amount',
+                          FinancialCalculator.formatCurrency(
+                            stats['overdueBalance'] as double,
+                          ),
+                          Colors.red.shade900,
+                        ),
+                      ],
                     ),
                   ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // 3. Aging Analysis
+                Text(
+                  'Aging Analysis',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                ...aging
+                    .map((category) => _buildAgingRow(context, category))
+                    .toList(),
+
+                const SizedBox(height: 24),
+
+                // 4. Payment Performance
+                Text(
+                  'Collection Rate',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                _buildCollectionProgress(
+                  context,
+                  stats['totalDebt'] as double,
+                  stats['totalCollected'] as double,
                 ),
               ],
             ),
@@ -50,6 +136,137 @@ class ReportsScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSimpleStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAgingRow(BuildContext context, AgingCategory category) {
+    final bool isCurrent = category.label == 'Current';
+    final color = isCurrent
+        ? Colors.green
+        : Colors.red.withValues(
+            alpha: 0.5 + (0.1 * category.customerCount).clamp(0.0, 0.5),
+          );
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Container(
+          width: 4,
+          height: 40,
+          color: isCurrent ? Colors.green : Colors.red,
+        ),
+        title: Text(
+          category.label,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text('${category.customerCount} Customers'),
+        trailing: Text(
+          FinancialCalculator.formatCurrency(category.totalBalance),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isCurrent ? Colors.green : Colors.red,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollectionProgress(
+    BuildContext context,
+    double totalDebt,
+    double totalCollected,
+  ) {
+    final double percentage = totalDebt > 0 ? (totalCollected / totalDebt) : 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Collection Progress'),
+                Text(
+                  '${(percentage * 100).toStringAsFixed(1)}%',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: percentage,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                percentage > 0.7 ? Colors.green : Colors.orange,
+              ),
+              minHeight: 10,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Collected ${FinancialCalculator.formatCurrency(totalCollected)} out of ${FinancialCalculator.formatCurrency(totalDebt)} total debt ever given.',
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
