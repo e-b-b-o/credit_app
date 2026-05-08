@@ -33,10 +33,10 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Credit App',
+      title: 'Smart Credit Manager',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
-      debugShowCheckedModeBanner: false,
     );
   }
 }

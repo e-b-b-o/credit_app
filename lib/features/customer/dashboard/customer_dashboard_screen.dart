@@ -37,7 +37,7 @@ final customerDashboardProvider = FutureProvider((ref) async {
 });
 
 class CustomerDashboardScreen extends ConsumerWidget {
-  const CustomerDashboardScreen({Key? key}) : super(key: key);
+  const CustomerDashboardScreen({super.key});
 
   void _showSubmitComplaintDialog(
     BuildContext context,
@@ -129,7 +129,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _StatusBadge({required PaymentStatus status}) {
+  Widget _statusBadge({required PaymentStatus status}) {
     Color color;
     switch (status) {
       case PaymentStatus.paid:
@@ -140,6 +140,9 @@ class CustomerDashboardScreen extends ConsumerWidget {
         break;
       case PaymentStatus.overdue:
         color = Colors.redAccent;
+        break;
+      case PaymentStatus.credit:
+        color = Colors.blueAccent;
         break;
       case PaymentStatus.pending:
         color = Colors.white70;
@@ -279,7 +282,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Dashboard'),
+        title: const Text('SCM Customer'),
         actions: [
           Consumer(
             builder: (context, ref, child) {
@@ -354,6 +357,11 @@ class CustomerDashboardScreen extends ConsumerWidget {
                     final balance = balances.outstandingBalance;
                     final status = data['status'] as PaymentStatus;
 
+                    String balanceLabel = 'My Outstanding Balance';
+                    if (status == PaymentStatus.credit) {
+                      balanceLabel = 'My Excess Credit';
+                    }
+
                     return Card(
                       color: AppColors.primary,
                       margin: EdgeInsets.zero,
@@ -362,7 +370,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
                         child: Column(
                           children: [
                             Text(
-                              'My Outstanding Balance',
+                              balanceLabel,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: AppColors.white.withValues(
@@ -377,7 +385,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.center,
                                 child: Text(
-                                  FinancialCalculator.formatCurrency(balance),
+                                  FinancialCalculator.formatCurrency(balance.abs()),
                                   style: Theme.of(context)
                                       .textTheme
                                       .headlineMedium
@@ -386,7 +394,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            _StatusBadge(status: status),
+                            _statusBadge(status: status),
                             if (profile.creditLimit > 0) ...[
                               const SizedBox(height: 16),
                               const Divider(color: Colors.white24),

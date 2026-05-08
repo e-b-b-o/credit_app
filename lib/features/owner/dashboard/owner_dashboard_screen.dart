@@ -7,7 +7,6 @@ import '../../../data/services/supabase_service.dart';
 import '../../../shared/utils/financial_calculator.dart';
 
 import '../../../data/models/transaction_model.dart';
-import '../../../data/models/customer_model.dart';
 
 final dashboardStatsProvider = FutureProvider((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
@@ -78,13 +77,13 @@ final dashboardStatsProvider = FutureProvider((ref) async {
 });
 
 class OwnerDashboardScreen extends ConsumerWidget {
-  const OwnerDashboardScreen({Key? key}) : super(key: key);
+  const OwnerDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Owner Dashboard'),
+        title: const Text('SCM Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -351,7 +350,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
                               ),
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     );
                   },

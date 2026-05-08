@@ -1,10 +1,17 @@
 import '../../data/models/transaction_model.dart';
 
-enum PaymentStatus { pending, partial, paid, overdue }
+enum PaymentStatus {
+  pending,
+  partial,
+  paid,
+  overdue,
+  credit, // New status for overpaid customers
+}
 
 class TransactionBalance {
   final double totalDebt;
   final double totalPaid;
+  final double totalRefunded;
   final double outstandingBalance;
   final double remainingCredit;
   final double creditLimit;
@@ -12,6 +19,7 @@ class TransactionBalance {
   TransactionBalance({
     required this.totalDebt,
     required this.totalPaid,
+    required this.totalRefunded,
     required this.outstandingBalance,
     required this.remainingCredit,
     required this.creditLimit,
@@ -50,26 +58,61 @@ class FinancialCalculator {
         .fold(0.0, (sum, t) => sum + t.amount);
   }
 
+  static double calculateTotalRefunds(List<TransactionModel> transactions) {
+    return transactions
+        .where((t) => t.type == 'refund')
+        .fold(0.0, (sum, t) => sum + t.amount);
+  }
+
   static double calculateRemainingBalance(List<TransactionModel> transactions) {
     final totalCredits = calculateTotalCredits(transactions);
     final totalPayments = calculateTotalPayments(transactions);
-    final balance = totalCredits - totalPayments;
-
+    final totalRefunds = calculateTotalRefunds(transactions);
+    
+    // Balance = (Total Debt + Total Refunds) - Total Payments
+    // If positive, customer owes money.
+    // If negative, customer has credit (overpaid).
+    final balance = (totalCredits + totalRefunds) - totalPayments;
+    
     // Ensure we don't have weird floating point issues near zero
     if (balance.abs() < 0.001) return 0.0;
-
+    
     return balance;
   }
 
-  static PaymentStatus calculatePaymentStatus(
-    List<TransactionModel> transactions,
-  ) {
-    final totalCredits = calculateTotalCredits(transactions);
-    final totalPayments = calculateTotalPayments(transactions);
+  static TransactionBalance calculateCustomerBalance(List<TransactionModel> transactions, double creditLimit) {
+    final totalDebt = calculateTotalCredits(transactions);
+    final totalPaid = calculateTotalPayments(transactions);
+    final totalRefunded = calculateTotalRefunds(transactions);
+    final outstanding = calculateRemainingBalance(transactions);
+    
+    // For remaining credit, we only care about positive outstanding balances
+    final effectiveOutstanding = outstanding > 0 ? outstanding : 0.0;
+    final remainingCredit = (creditLimit - effectiveOutstanding).clamp(0.0, creditLimit);
+
+    return TransactionBalance(
+      totalDebt: totalDebt,
+      totalPaid: totalPaid,
+      totalRefunded: totalRefunded,
+      outstandingBalance: outstanding,
+      remainingCredit: remainingCredit,
+      creditLimit: creditLimit,
+    );
+  }
+
+  static PaymentStatus calculatePaymentStatus(List<TransactionModel> transactions) {
     final remaining = calculateRemainingBalance(transactions);
 
+    if (remaining < -0.001) {
+      return PaymentStatus.credit;
+    }
+
+    final totalCredits = calculateTotalCredits(transactions);
+    final totalPayments = calculateTotalPayments(transactions);
+    final totalRefunds = calculateTotalRefunds(transactions);
+
     if (totalCredits == 0) {
-      return totalPayments > 0 ? PaymentStatus.paid : PaymentStatus.pending;
+      return (totalPayments - totalRefunds) > 0 ? PaymentStatus.paid : PaymentStatus.pending;
     }
 
     if (remaining <= 0) {
@@ -80,16 +123,16 @@ class FinancialCalculator {
     final credits = transactions.where((t) => t.type == 'credit').toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    double paymentsLeftToApply = totalPayments;
+    // Net payments available to apply to credits = payments - refunds
+    double paymentsLeftToApply = (totalPayments - totalRefunds).clamp(0.0, double.infinity);
     bool hasOverdueUnpaid = false;
-
+    
     for (var credit in credits) {
       if (paymentsLeftToApply >= credit.amount) {
         paymentsLeftToApply -= credit.amount;
       } else {
         // This credit is partially or fully unpaid
-        if (credit.dueDate != null &&
-            credit.dueDate!.isBefore(DateTime.now())) {
+        if (credit.dueDate != null && credit.dueDate!.isBefore(DateTime.now())) {
           hasOverdueUnpaid = true;
           break;
         }
@@ -100,57 +143,38 @@ class FinancialCalculator {
       return PaymentStatus.overdue;
     }
 
-    if (totalPayments > 0 && remaining > 0) {
+    if ((totalPayments - totalRefunds) > 0 && remaining > 0) {
       return PaymentStatus.partial;
     }
 
     return PaymentStatus.pending;
   }
 
-  static TransactionBalance calculateCustomerBalance(
-    List<TransactionModel> transactions,
-    double creditLimit,
-  ) {
-    final totalDebt = calculateTotalCredits(transactions);
-    final totalPaid = calculateTotalPayments(transactions);
-    final outstanding = calculateRemainingBalance(transactions);
-    final remainingCredit = (creditLimit - outstanding).clamp(0.0, creditLimit);
-
-    return TransactionBalance(
-      totalDebt: totalDebt,
-      totalPaid: totalPaid,
-      outstandingBalance: outstanding,
-      remainingCredit: remainingCredit,
-      creditLimit: creditLimit,
-    );
-  }
-
-  static PaymentStatus calculateSingleTransactionStatus(
-    TransactionModel tx,
-    List<TransactionModel> allTransactions,
-  ) {
-    if (tx.type == 'payment') return PaymentStatus.paid;
+  static PaymentStatus calculateSingleTransactionStatus(TransactionModel tx, List<TransactionModel> allTransactions) {
+    if (tx.type == 'payment' || tx.type == 'refund') return PaymentStatus.paid;
 
     final totalPayments = calculateTotalPayments(allTransactions);
-
-    // Get all credits sorted by date to apply payments in FIFO order
-    final allCredits = allTransactions.where((t) => t.type == 'credit').toList()
+    final totalRefunds = calculateTotalRefunds(allTransactions);
+    
+    // Net payments available = total - refunded
+    double paymentsLeft = (totalPayments - totalRefunds).clamp(0.0, double.infinity);
+    
+    final allCredits = allTransactions
+        .where((t) => t.type == 'credit')
+        .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    double paymentsLeft = totalPayments;
     for (var credit in allCredits) {
       if (credit.id == tx.id) {
         final isFullyPaid = paymentsLeft >= credit.amount;
-        final isPartiallyPaid =
-            paymentsLeft > 0 && paymentsLeft < credit.amount;
-
+        final isPartiallyPaid = paymentsLeft > 0 && paymentsLeft < credit.amount;
+        
         if (isFullyPaid) return PaymentStatus.paid;
-
+        
         // Check for overdue if not fully paid
-        final isOverdue =
-            tx.dueDate != null && tx.dueDate!.isBefore(DateTime.now());
+        final isOverdue = tx.dueDate != null && tx.dueDate!.isBefore(DateTime.now());
         if (isOverdue) return PaymentStatus.overdue;
-
+        
         return isPartiallyPaid ? PaymentStatus.partial : PaymentStatus.pending;
       }
       paymentsLeft = (paymentsLeft - credit.amount).clamp(0.0, double.infinity);
@@ -168,6 +192,8 @@ class FinancialCalculator {
         return 'Paid';
       case PaymentStatus.overdue:
         return 'Overdue';
+      case PaymentStatus.credit:
+        return 'Credit';
     }
   }
 

@@ -7,7 +7,7 @@ import '../../../shared/widgets/custom_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -83,6 +83,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const Text(
+                  'Smart Credit Manager',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const Text(
+                  'SCM - Simple & Secure',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.textLight,
+                  ),
+                ),
                 const SizedBox(height: 32),
                 CustomTextField(
                   label: 'Email',

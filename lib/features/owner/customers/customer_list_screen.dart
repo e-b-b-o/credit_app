@@ -12,7 +12,7 @@ final customersProvider = FutureProvider<List<CustomerModel>>((ref) async {
 });
 
 class CustomerListScreen extends ConsumerWidget {
-  const CustomerListScreen({Key? key}) : super(key: key);
+  const CustomerListScreen({super.key});
 
   void _showCreateCredentialsDialog(
     BuildContext context,
@@ -54,8 +54,9 @@ class CustomerListScreen extends ConsumerWidget {
                     ? null
                     : () async {
                         if (emailController.text.isEmpty ||
-                            passwordController.text.isEmpty)
+                            passwordController.text.isEmpty) {
                           return;
+                        }
                         setState(() => isLoading = true);
                         try {
                           await ref
@@ -146,8 +147,9 @@ class CustomerListScreen extends ConsumerWidget {
                     ? null
                     : () async {
                         if (nameController.text.trim().isEmpty ||
-                            phoneController.text.trim().isEmpty)
+                            phoneController.text.trim().isEmpty) {
                           return;
+                        }
                         final creditLimit =
                             double.tryParse(creditLimitController.text) ?? 0.0;
 

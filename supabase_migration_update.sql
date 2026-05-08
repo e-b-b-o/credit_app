@@ -84,3 +84,9 @@ begin
   delete from auth.users where id = auth.uid();
 end;
 $$;
+
+-- 5. UPDATE TRANSACTIONS TYPE CONSTRAINT FOR REFUND
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS "transaction-type-check";
+ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS "transactions_type_check";
+ALTER TABLE public.transactions ADD CONSTRAINT "transactions_type_check" CHECK (type IN ('credit', 'payment', 'refund'));
+

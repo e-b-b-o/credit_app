@@ -6,7 +6,7 @@ import '../controller/auth_controller.dart';
 import '../../../shared/widgets/custom_button.dart';
 
 class RoleSelectionScreen extends ConsumerWidget {
-  const RoleSelectionScreen({Key? key}) : super(key: key);
+  const RoleSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,7 +25,7 @@ class RoleSelectionScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
               Text(
-                'Welcome to CreditApp',
+                'Welcome to Smart Credit Manager',
                 style: Theme.of(context).textTheme.headlineLarge,
                 textAlign: TextAlign.center,
               ),

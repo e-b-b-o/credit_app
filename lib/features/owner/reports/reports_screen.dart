@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../dashboard/owner_dashboard_screen.dart';
 import '../../../shared/utils/financial_calculator.dart';
-import '../../../data/models/customer_model.dart';
 
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
@@ -135,8 +134,7 @@ class ReportsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 ...aging
-                    .map((category) => _buildAgingRow(context, category))
-                    .toList(),
+                    .map((category) => _buildAgingRow(context, category)),
 
                 const SizedBox(height: 24),
 
@@ -222,12 +220,6 @@ class ReportsScreen extends ConsumerWidget {
 
   Widget _buildAgingRow(BuildContext context, AgingCategory category) {
     final bool isCurrent = category.label == 'Current';
-    final color = isCurrent
-        ? Colors.green
-        : Colors.red.withValues(
-            alpha: 0.5 + (0.1 * category.customerCount).clamp(0.0, 0.5),
-          );
-
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 0,

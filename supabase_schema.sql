@@ -20,7 +20,7 @@ create table if not exists public.transactions (
     customer_id uuid references public.customers(id) on delete cascade not null,
     owner_id uuid references auth.users(id) on delete cascade not null,
     amount numeric not null check (amount > 0),
-    type text not null check (type in ('credit', 'payment')),
+    type text not null check (type in ('credit', 'payment', 'refund')),
     title text,
     date timestamp with time zone default timezone('utc'::text, now()) not null,
     due_date timestamp with time zone,

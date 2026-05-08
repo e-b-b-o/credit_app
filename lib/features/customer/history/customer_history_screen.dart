@@ -57,9 +57,12 @@ class CustomerHistoryScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final tx = transactions[index];
                 final isCredit = tx.type == 'credit';
+                final isRefund = tx.type == 'refund';
                 final color = isCredit
                     ? Colors.red.shade600
-                    : Colors.green.shade600;
+                    : (isRefund ? Colors.blue.shade600 : Colors.green.shade600);
+                final icon = isRefund ? Icons.money_off : (isCredit ? Icons.arrow_upward : Icons.arrow_downward);
+                final titleText = isRefund ? 'Refund Issued' : (isCredit ? 'Credit' : 'Payment');
 
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 5),
@@ -67,7 +70,7 @@ class CustomerHistoryScreen extends ConsumerWidget {
                     leading: CircleAvatar(
                       backgroundColor: color.withValues(alpha: 0.12),
                       child: Icon(
-                        isCredit ? Icons.arrow_upward : Icons.arrow_downward,
+                        icon,
                         color: color,
                         size: 20,
                       ),
@@ -75,7 +78,7 @@ class CustomerHistoryScreen extends ConsumerWidget {
                     title: Text(
                       tx.title?.isNotEmpty == true
                           ? tx.title!
-                          : (isCredit ? 'Credit' : 'Payment'),
+                          : titleText,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Column(

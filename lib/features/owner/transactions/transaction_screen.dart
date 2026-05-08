@@ -14,7 +14,7 @@ final allTransactionsProvider = FutureProvider<List<TransactionModel>>((
 });
 
 class TransactionScreen extends ConsumerWidget {
-  const TransactionScreen({Key? key}) : super(key: key);
+  const TransactionScreen({super.key});
 
   void _showAddTransactionDialog(BuildContext context, WidgetRef ref) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -83,6 +83,10 @@ class TransactionScreen extends ConsumerWidget {
                           value: 'payment',
                           child: Text('Receive Payment'),
                         ),
+                        DropdownMenuItem<String>(
+                          value: 'refund',
+                          child: Text('Refund Overpayment'),
+                        ),
                       ],
                       onChanged: (v) => setState(() => type = v!),
                     ),
@@ -121,11 +125,22 @@ class TransactionScreen extends ConsumerWidget {
                         final amount = double.tryParse(amountController.text);
                         if (amount == null ||
                             amount <= 0 ||
-                            selectedCustomerId == null)
+                            selectedCustomerId == null) {
                           return;
+                        }
 
                         setState(() => isLoading = true);
                         try {
+                          if (type == 'refund') {
+                             final customerTransactions = await ref.read(supabaseServiceProvider).getTransactionsForCustomer(selectedCustomerId!);
+                             final currentBalance = FinancialCalculator.calculateRemainingBalance(customerTransactions);
+                             if (currentBalance >= 0) {
+                               throw Exception('Cannot refund: Customer has no excess credit.');
+                             }
+                             if (amount > currentBalance.abs() + 0.001) {
+                               throw Exception('Cannot refund more than the excess credit amount.');
+                             }
+                          }
                           await ref
                               .read(supabaseServiceProvider)
                               .addTransaction(
@@ -185,17 +200,22 @@ class TransactionScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final tx = transactions[index];
               final isCredit = tx.type == 'credit';
+              final isRefund = tx.type == 'refund';
+              final iconColor = isCredit ? Colors.red : (isRefund ? Colors.blue : Colors.green);
+              final icon = isRefund ? Icons.money_off : (isCredit ? Icons.arrow_upward : Icons.arrow_downward);
+              final titleText = isRefund ? 'Refund Issued' : (isCredit ? 'Credit Given' : 'Payment Received');
+              
               return ListTile(
                 leading: Icon(
-                  isCredit ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: isCredit ? Colors.red : Colors.green,
+                  icon,
+                  color: iconColor,
                 ),
-                title: Text(isCredit ? 'Credit Given' : 'Payment Received'),
+                title: Text(tx.title?.isNotEmpty == true ? tx.title! : titleText),
                 subtitle: Text(tx.date.toString().split(' ')[0]),
                 trailing: Text(
                   FinancialCalculator.formatCurrency(tx.amount),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: isCredit ? Colors.red : Colors.green,
+                    color: iconColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

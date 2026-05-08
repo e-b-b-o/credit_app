@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/supabase_service.dart';
-import '../../data/models/transaction_model.dart';
+
 import '../../shared/utils/financial_calculator.dart';
 import '../../data/models/notification_model.dart';
 

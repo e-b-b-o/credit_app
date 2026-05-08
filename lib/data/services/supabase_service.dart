@@ -166,10 +166,11 @@ class SupabaseService {
       );
 
       final newUserId = response.user?.id;
-      if (newUserId == null)
+      if (newUserId == null) {
         throw Exception(
           'Failed to create user auth record. Ensure email confirmation is disabled in Supabase.',
         );
+      }
 
       // 2. Link the new auth user id to the customer record using the OWNER's authenticated client
       // (This respects RLS: owners can only update their own customers)
