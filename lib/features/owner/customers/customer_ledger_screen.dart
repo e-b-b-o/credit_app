@@ -10,7 +10,7 @@ import '../dashboard/owner_dashboard_screen.dart' show dashboardStatsProvider;
 
 // Family provider — keyed by customerId. All watchers auto-refresh on invalidation.
 final customerLedgerProvider =
-    FutureProvider.family<List<TransactionModel>, String>((
+    FutureProvider.autoDispose.family<List<TransactionModel>, String>((
       ref,
       customerId,
     ) async {
@@ -74,7 +74,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                           ),
                           DropdownMenuItem(
                             value: 'refund',
-                            child: Text('Refund (Excess Credit)'),
+                            child: Text('Refund / Discount'),
                           ),
                         ],
                         onChanged: (v) => setState(() => type = v!),
@@ -157,6 +157,25 @@ class CustomerLedgerScreen extends ConsumerWidget {
                       final amount = double.tryParse(amountController.text);
                       if (amount == null || amount <= 0) return;
 
+                      if (type == 'payment' || type == 'refund') {
+                        final currentBalance =
+                            FinancialCalculator.calculateRemainingBalance(
+                              transactions,
+                            );
+                        final oldAmount = existing?.amount ?? 0.0;
+                        if (amount > currentBalance + oldAmount + 0.001) {
+                          final action = type == 'payment' ? 'Payment' : 'Refund';
+                          if (!ctx.mounted) return;
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text('$action exceeds remaining outstanding balance.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
                       if (existing == null && type == 'credit') {
                         final currentBalance =
                             FinancialCalculator.calculateRemainingBalance(
@@ -194,22 +213,6 @@ class CustomerLedgerScreen extends ConsumerWidget {
                       setState(() => isLoading = true);
                       try {
                         if (existing == null) {
-                          if (type == 'refund') {
-                            final currentBalance =
-                                FinancialCalculator.calculateRemainingBalance(
-                                  transactions,
-                                );
-                            if (currentBalance >= 0) {
-                              throw Exception(
-                                'Cannot refund: Customer has no excess credit.',
-                              );
-                            }
-                            if (amount > currentBalance.abs() + 0.001) {
-                              throw Exception(
-                                'Cannot refund more than the excess credit amount.',
-                              );
-                            }
-                          }
                           await ref
                               .read(supabaseServiceProvider)
                               .addTransaction(
@@ -478,10 +481,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                       statusColor = Colors.orange;
                       statusIcon = Icons.timelapse;
                       break;
-                    case PaymentStatus.credit:
-                      statusColor = Colors.blue;
-                      statusIcon = Icons.stars;
-                      break;
+
                     default:
                       statusColor = Colors.grey;
                       statusIcon = Icons.radio_button_unchecked;
@@ -555,17 +555,13 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                 ),
                                 _divider(),
                                 _SummaryCell(
-                                  label: balance < 0
-                                      ? 'Excess Credit'
-                                      : 'Outstanding',
+                                  label: 'Outstanding',
                                   value: FinancialCalculator.formatCurrency(
-                                    balance.abs(),
+                                    balance,
                                   ),
                                   color: balance > 0
                                       ? Colors.orange.shade800
-                                      : (balance < 0
-                                            ? Colors.blue.shade700
-                                            : Colors.green.shade700),
+                                      : Colors.green.shade700,
                                 ),
                               ],
                             ),
@@ -658,28 +654,26 @@ class CustomerLedgerScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        if (balance < 0) ...[
-                          const SizedBox(height: 12),
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.blue.shade700,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 12,
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.money_off,
-                              size: 20,
-                            ),
-                            label: const Text('Refund Overpayment'),
-                            onPressed: () => _showTransactionDialog(
-                              context,
-                              ref,
-                              defaultType: 'refund',
-                              transactions: transactions,
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.blue.shade700,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
                             ),
                           ),
-                        ],
+                          icon: const Icon(
+                            Icons.money_off,
+                            size: 20,
+                          ),
+                          label: const Text('Add Refund / Discount'),
+                          onPressed: () => _showTransactionDialog(
+                            context,
+                            ref,
+                            defaultType: 'refund',
+                            transactions: transactions,
+                          ),
+                        ),
                         const SizedBox(height: 20),
                         Row(
                           children: [
@@ -736,9 +730,10 @@ class CustomerLedgerScreen extends ConsumerWidget {
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final tx = transactions[index];
                     final isCredit = tx.type == 'credit';
+                    final isRefund = tx.type == 'refund';
                     final color = isCredit
                         ? Colors.red.shade600
-                        : Colors.green.shade600;
+                        : (isRefund ? Colors.blue.shade600 : Colors.green.shade600);
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(
@@ -774,7 +769,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                       child: Icon(
                                         isCredit
                                             ? Icons.arrow_upward
-                                            : Icons.arrow_downward,
+                                            : (isRefund ? Icons.money_off : Icons.arrow_downward),
                                         color: color,
                                         size: 18,
                                       ),
@@ -788,9 +783,11 @@ class CustomerLedgerScreen extends ConsumerWidget {
                                           Text(
                                             tx.title?.isNotEmpty == true
                                                 ? tx.title!
-                                                : (isCredit
-                                                      ? 'Credit'
-                                                      : 'Payment'),
+                                                : (isRefund
+                                                      ? 'Refund / Discount'
+                                                      : (isCredit
+                                                            ? 'Credit'
+                                                            : 'Payment')),
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15,
@@ -1008,9 +1005,7 @@ class CustomerLedgerScreen extends ConsumerWidget {
       case PaymentStatus.overdue:
         color = Colors.red;
         break;
-      case PaymentStatus.credit:
-        color = Colors.blue;
-        break;
+
       case PaymentStatus.pending:
         color = Colors.grey;
         break;

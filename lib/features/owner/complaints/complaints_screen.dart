@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/supabase_service.dart';
 import '../../../data/models/complaint_model.dart';
 
-final complaintsProvider = FutureProvider<List<ComplaintModel>>((ref) async {
+final complaintsProvider = FutureProvider.autoDispose<List<ComplaintModel>>((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
   return supabaseService.getComplaints();
 });

@@ -6,7 +6,7 @@ import '../customers/customer_ledger_screen.dart' show customerLedgerProvider;
 import '../../../shared/utils/financial_calculator.dart';
 import '../dashboard/owner_dashboard_screen.dart' show dashboardStatsProvider;
 
-final allTransactionsProvider = FutureProvider<List<TransactionModel>>((
+final allTransactionsProvider = FutureProvider.autoDispose<List<TransactionModel>>((
   ref,
 ) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
@@ -85,7 +85,7 @@ class TransactionScreen extends ConsumerWidget {
                         ),
                         DropdownMenuItem<String>(
                           value: 'refund',
-                          child: Text('Refund Overpayment'),
+                          child: Text('Refund / Discount'),
                         ),
                       ],
                       onChanged: (v) => setState(() => type = v!),
@@ -129,18 +129,24 @@ class TransactionScreen extends ConsumerWidget {
                           return;
                         }
 
+                        if (type == 'payment' || type == 'refund') {
+                          final customerTransactions = await ref.read(supabaseServiceProvider).getTransactionsForCustomer(selectedCustomerId!);
+                          final currentBalance = FinancialCalculator.calculateRemainingBalance(customerTransactions);
+                          if (amount > currentBalance + 0.001) {
+                            final action = type == 'payment' ? 'Payment' : 'Refund';
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('$action exceeds remaining outstanding balance.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                        }
+
                         setState(() => isLoading = true);
                         try {
-                          if (type == 'refund') {
-                             final customerTransactions = await ref.read(supabaseServiceProvider).getTransactionsForCustomer(selectedCustomerId!);
-                             final currentBalance = FinancialCalculator.calculateRemainingBalance(customerTransactions);
-                             if (currentBalance >= 0) {
-                               throw Exception('Cannot refund: Customer has no excess credit.');
-                             }
-                             if (amount > currentBalance.abs() + 0.001) {
-                               throw Exception('Cannot refund more than the excess credit amount.');
-                             }
-                          }
                           await ref
                               .read(supabaseServiceProvider)
                               .addTransaction(

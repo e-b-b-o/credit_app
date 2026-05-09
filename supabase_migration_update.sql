@@ -85,6 +85,34 @@ begin
 end;
 $$;
 
+-- Delete Customer Auth Account RPC
+create or replace function public.delete_customer_auth_account(target_customer_id uuid)
+returns void language plpgsql security definer as $$
+declare
+  owner_uid uuid;
+  target_auth_id uuid;
+begin
+  owner_uid := auth.uid();
+  
+  if owner_uid is null then
+    raise exception 'Unauthorized';
+  end if;
+
+  -- Verify the owner owns this customer, and get the customer's auth_user_id
+  select auth_user_id into target_auth_id 
+  from public.customers 
+  where id = target_customer_id and owner_id = owner_uid;
+
+  -- Delete the auth user if linked
+  if target_auth_id is not null then
+    delete from auth.users where id = target_auth_id;
+  end if;
+
+  -- Delete customer record
+  delete from public.customers where id = target_customer_id and owner_id = owner_uid;
+end;
+$$;
+
 -- 5. UPDATE TRANSACTIONS TYPE CONSTRAINT FOR REFUND
 ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS "transaction-type-check";
 ALTER TABLE public.transactions DROP CONSTRAINT IF EXISTS "transactions_type_check";

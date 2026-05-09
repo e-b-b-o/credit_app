@@ -8,7 +8,7 @@ import '../../../shared/utils/financial_calculator.dart';
 
 import '../../../data/models/transaction_model.dart';
 
-final dashboardStatsProvider = FutureProvider((ref) async {
+final dashboardStatsProvider = FutureProvider.autoDispose((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
   final customers = await supabaseService.getCustomers();
   final transactions = await supabaseService.getAllTransactions();
@@ -17,9 +17,15 @@ final dashboardStatsProvider = FutureProvider((ref) async {
   final totalCollected = FinancialCalculator.calculateTotalPayments(
     transactions,
   );
-  final totalOutstanding = FinancialCalculator.calculateRemainingBalance(
-    transactions,
-  );
+  double totalOutstanding = 0;
+  for (var customer in customers) {
+    final customerTransactions = transactions
+        .where((t) => t.customerId == customer.id)
+        .toList();
+    totalOutstanding += FinancialCalculator.calculateRemainingBalance(
+      customerTransactions,
+    );
+  }
 
   int overdueCustomersCount = 0;
   double overdueBalance = 0;
@@ -79,17 +85,77 @@ final dashboardStatsProvider = FutureProvider((ref) async {
 class OwnerDashboardScreen extends ConsumerWidget {
   const OwnerDashboardScreen({super.key});
 
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+        content: const Text(
+          'Are you absolutely sure you want to permanently delete your account? '
+          'This will delete all your customers, transactions, reports, and all related data. '
+          'This action CANNOT be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Permanently', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (!context.mounted) return;
+      try {
+        await ref.read(supabaseServiceProvider).deleteOwnerAccount();
+        // The authControllerProvider listens to auth state changes, so it will redirect automatically upon signOut inside deleteOwnerAccount.
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('SCM Dashboard'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authControllerProvider.notifier).signOut();
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'logout') {
+                ref.read(authControllerProvider.notifier).signOut();
+              } else if (value == 'delete_account') {
+                _showDeleteAccountDialog(context, ref);
+              }
             },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.black87),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'delete_account',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_forever, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete Account', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

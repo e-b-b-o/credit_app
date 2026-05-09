@@ -5,8 +5,9 @@ import '../../../data/services/supabase_service.dart';
 import '../../../data/models/customer_model.dart';
 import '../../../core/theme/app_colors.dart';
 import '../dashboard/owner_dashboard_screen.dart' show dashboardStatsProvider;
+import '../transactions/transaction_screen.dart' show allTransactionsProvider;
 
-final customersProvider = FutureProvider<List<CustomerModel>>((ref) async {
+final customersProvider = FutureProvider.autoDispose<List<CustomerModel>>((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
   return supabaseService.getCustomers();
 });
@@ -319,13 +320,13 @@ class CustomerListScreen extends ConsumerWidget {
                             );
                           } else if (value == 'set_limit') {
                             _showUpdateLimitDialog(context, ref, customer);
-                          } else if (value == 'deactivate') {
+                          } else if (value == 'delete') {
                             final confirm = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: const Text('Deactivate Customer'),
+                                title: const Text('Delete Customer'),
                                 content: const Text(
-                                  'Are you sure you want to deactivate this customer? They will no longer appear in the active lists.',
+                                  'Are you sure you want to permanently delete this customer and all related records?',
                                 ),
                                 actions: [
                                   TextButton(
@@ -335,7 +336,7 @@ class CustomerListScreen extends ConsumerWidget {
                                   TextButton(
                                     onPressed: () => Navigator.pop(ctx, true),
                                     child: const Text(
-                                      'Deactivate',
+                                      'Delete',
                                       style: TextStyle(color: Colors.red),
                                     ),
                                   ),
@@ -345,9 +346,10 @@ class CustomerListScreen extends ConsumerWidget {
                             if (confirm == true) {
                               await ref
                                   .read(supabaseServiceProvider)
-                                  .deactivateCustomer(customer.id);
+                                  .deleteCustomer(customer.id);
                               ref.invalidate(customersProvider);
                               ref.invalidate(dashboardStatsProvider);
+                              ref.invalidate(allTransactionsProvider);
                             }
                           }
                         },
@@ -362,9 +364,9 @@ class CustomerListScreen extends ConsumerWidget {
                             child: Text('Set Credit Limit'),
                           ),
                           const PopupMenuItem(
-                            value: 'deactivate',
+                            value: 'delete',
                             child: Text(
-                              'Deactivate',
+                              'Delete',
                               style: TextStyle(color: Colors.red),
                             ),
                           ),

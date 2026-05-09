@@ -119,11 +119,16 @@ class SupabaseService {
     return CustomerModel.fromJson(response);
   }
 
-  Future<void> deactivateCustomer(String customerId) async {
-    await _client
-        .from('customers')
-        .update({'is_active': false})
-        .eq('id', customerId);
+  Future<void> deleteCustomer(String customerId) async {
+    try {
+      await _client.rpc(
+        'delete_customer_auth_account',
+        params: {'target_customer_id': customerId},
+      );
+    } catch (e) {
+      // Fallback if RPC is not deployed yet
+      await _client.from('customers').delete().eq('id', customerId);
+    }
   }
 
   Future<CustomerModel> getCurrentCustomerProfile() async {

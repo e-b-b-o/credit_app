@@ -9,13 +9,13 @@ import '../../../data/models/customer_model.dart';
 import '../../../data/models/transaction_model.dart';
 import '../../../data/models/notification_model.dart';
 
-final notificationsProvider = FutureProvider<List<NotificationModel>>((
+final notificationsProvider = FutureProvider.autoDispose<List<NotificationModel>>((
   ref,
 ) async {
   return ref.watch(supabaseServiceProvider).getNotifications();
 });
 
-final customerDashboardProvider = FutureProvider((ref) async {
+final customerDashboardProvider = FutureProvider.autoDispose((ref) async {
   final supabaseService = ref.watch(supabaseServiceProvider);
   final profile = await supabaseService.getCurrentCustomerProfile();
   // Scope transactions to this customer only — never use getAllTransactions() here
@@ -141,9 +141,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
       case PaymentStatus.overdue:
         color = Colors.redAccent;
         break;
-      case PaymentStatus.credit:
-        color = Colors.blueAccent;
-        break;
+
       case PaymentStatus.pending:
         color = Colors.white70;
         break;
@@ -358,9 +356,6 @@ class CustomerDashboardScreen extends ConsumerWidget {
                     final status = data['status'] as PaymentStatus;
 
                     String balanceLabel = 'My Outstanding Balance';
-                    if (status == PaymentStatus.credit) {
-                      balanceLabel = 'My Excess Credit';
-                    }
 
                     return Card(
                       color: AppColors.primary,
@@ -385,7 +380,7 @@ class CustomerDashboardScreen extends ConsumerWidget {
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.center,
                                 child: Text(
-                                  FinancialCalculator.formatCurrency(balance.abs()),
+                                  FinancialCalculator.formatCurrency(balance),
                                   style: Theme.of(context)
                                       .textTheme
                                       .headlineMedium
