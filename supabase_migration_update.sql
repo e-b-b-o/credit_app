@@ -74,16 +74,39 @@ end $$;
 drop function if exists public.create_customer_user(text, text, text, uuid);
 
 -- Delete Own User Account RPC
+-- FIX: Performs FULL cascade auth deletion:
+--   Step 1 — Deletes each customer's auth.users row (removes login credentials/sessions)
+--   Step 2 — Deletes the owner's auth.users row (cascades all remaining DB records)
 create or replace function public.delete_user_account()
-returns void language plpgsql security definer as $$
+returns void language plpgsql security definer
+set search_path = public
+as $$
+declare
+  owner_uid         uuid;
+  customer_auth_uid uuid;
 begin
-  if auth.uid() is null then
-    raise exception 'Unauthorized';
+  owner_uid := auth.uid();
+  if owner_uid is null then
+    raise exception 'Unauthorized: must be authenticated to delete account';
   end if;
-  
-  delete from auth.users where id = auth.uid();
+
+  -- Step 1: Delete every customer's auth account (credentials/sessions/tokens)
+  for customer_auth_uid in
+    select auth_user_id
+    from   public.customers
+    where  owner_id     = owner_uid
+      and  auth_user_id is not null
+  loop
+    delete from auth.users where id = customer_auth_uid;
+  end loop;
+
+  -- Step 2: Delete the owner's auth account (cascades all DB records)
+  delete from auth.users where id = owner_uid;
 end;
 $$;
+
+revoke all on function public.delete_user_account() from public;
+grant  execute on function public.delete_user_account() to authenticated;
 
 -- Delete Customer Auth Account RPC
 create or replace function public.delete_customer_auth_account(target_customer_id uuid)

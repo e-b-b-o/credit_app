@@ -211,19 +211,48 @@ using (
 
 -- RPCs for User Management
 
--- Create Customer User RPC has been removed. 
+-- Create Customer User RPC has been removed.
 -- Please use the Supabase Edge Function `create-customer-user` instead.
 drop function if exists public.create_customer_user;
 
 -- Delete Own User Account RPC
+-- IMPORTANT: This version performs FULL cascade auth deletion:
+--   1. Deletes every customer's auth.users row (removes credentials/sessions)
+--   2. Deletes the owner's auth.users row (cascades all DB records)
 create or replace function public.delete_user_account()
-returns void language plpgsql security definer as $$
+returns void language plpgsql security definer
+set search_path = public
+as $$
+declare
+  owner_uid         uuid;
+  customer_auth_uid uuid;
 begin
-  if auth.uid() is null then
-    raise exception 'Unauthorized';
+  owner_uid := auth.uid();
+  if owner_uid is null then
+    raise exception 'Unauthorized: must be authenticated to delete account';
   end if;
-  
-  -- The trigger on auth.users will cascade delete public.customers, etc.
-  delete from auth.users where id = auth.uid();
+
+  -- Step 1: Delete every customer's auth account that belongs to this owner.
+  -- auth_user_id is the customer's row in auth.users (their login credentials).
+  -- Deleting it removes their identity, sessions, refresh tokens, etc.
+  for customer_auth_uid in
+    select auth_user_id
+    from   public.customers
+    where  owner_id     = owner_uid
+      and  auth_user_id is not null
+  loop
+    delete from auth.users where id = customer_auth_uid;
+  end loop;
+
+  -- Step 2: Delete the owner's own auth.users row.
+  -- This cascades to all owner-linked tables:
+  --   public.customers (owner_id FK ON DELETE CASCADE)
+  --   public.transactions (owner_id FK ON DELETE CASCADE)
+  --   public.complaints (owner_id FK ON DELETE CASCADE)
+  --   public.notifications (owner_id FK ON DELETE CASCADE)
+  delete from auth.users where id = owner_uid;
 end;
 $$;
+
+revoke all on function public.delete_user_account() from public;
+grant  execute on function public.delete_user_account() to authenticated;
