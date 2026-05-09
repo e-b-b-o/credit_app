@@ -197,9 +197,8 @@ Distributed under the MIT License. See `LICENSE` for more information.
 **[Your Name / Your Portfolio Link]**  
 *Full Stack Developer | Mobile App Specialist*
 
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your Profile](https://linkedin.com/in/yourprofile)
-- Email: your.email@example.com
+- GitHub: [@yourusername](https://github.com/e-b-b-o)
+- Email: ebisagetachew1243@gmail.com
 
 ---
 *This project is designed for professional presentation, portfolio showcase, and academic submission.*
