@@ -194,7 +194,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 👨‍💻 Author / Developer
 
-**[Your Name / Your Portfolio Link]**  
+**[Ebisa Getachew ]**  
 *Full Stack Developer | Mobile App Specialist*
 
 - GitHub: [https://github.com/e-b-b-o](https://github.com/e-b-b-o)
